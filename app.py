@@ -259,6 +259,14 @@ def inject_css() -> None:
             min-height: 44px;
             font-weight: 700;
         }
+
+        /* Mobile navigation fix */
+        div[data-testid="stSelectbox"] { margin-bottom: 0.8rem; }
+        div[data-testid="stSelectbox"] > div { width: 100%; }
+        @media (max-width: 640px) {
+            .block-container { padding-top: 0.75rem; padding-left: 1rem; padding-right: 1rem; }
+            div[data-testid="stSelectbox"] { position: sticky; top: 0; z-index: 999; background: white; padding-bottom: 0.4rem; }
+        }
         @media (max-width: 640px) {
             .block-container { padding-left: 1rem; padding-right: 1rem; }
             .hero-card h1 { font-size: 1.65rem; }
@@ -501,22 +509,23 @@ def main() -> None:
     inject_css()
     food_db = load_food_db()
 
-    page = st.radio(
+    # Mobile-friendly navigation: a compact dropdown avoids the top row being cut off on iPhone.
+    page = st.selectbox(
         "Navigate",
-        ["🏠 Today", "🍽 Meal", "🏋 Training", "📈 Progress", "⚙ Settings"],
-        horizontal=True,
+        ["Today", "Meal", "Training", "Progress", "Settings"],
+        index=0,
         label_visibility="collapsed",
     )
 
-    if page == "🏠 Today":
+    if page == "Today":
         today_page(food_db)
-    elif page == "🍽 Meal":
+    elif page == "Meal":
         meal_page(food_db)
-    elif page == "🏋 Training":
+    elif page == "Training":
         training_page()
-    elif page == "📈 Progress":
+    elif page == "Progress":
         progress_page()
-    elif page == "⚙ Settings":
+    elif page == "Settings":
         settings_page(food_db)
 
 
