@@ -1,0 +1,37 @@
+food_name,food_name_cn,category,unit,kcal_per_100g,protein_per_100g,carbs_per_100g,fat_per_100g,fiber_per_100g,notes
+Banana,香蕉,fruit,g,89,1.2,23.0,0.2,2.5,uploaded: 香蕉.png; edible portion per 100g
+Blueberries,蓝莓,fruit,g,57,0.7,14.5,0.3,2.4,uploaded: 蓝莓.png
+Strawberries,草莓,fruit,g,32,0.7,7.7,0.3,2.0,"uploaded: 草莓.png; screenshot says 32-40 kcal, use 32"
+Apple,苹果,fruit,g,55,0.3,14.5,0.2,2.0,"uploaded: 苹果.png; screenshot range 52-57 kcal, use midpoint"
+Muesli / Oat Mix,麦片,carb,g,370,11.0,65.0,5.5,8.0,"uploaded: 麦片.png; Tesco-style muesli/wheat flakes with oats, raisins, nuts"
+Oats,燕麦,carb,g,370,11.0,65.0,5.5,8.0,same as uploaded 麦片 table unless replaced with true oats label
+Steamed Purple Sweet Potato,紫薯_蒸/煮,carb,g,84,2.0,19.0,0.1,3.0,uploaded: 紫薯热量表.png; midpoint values
+Lettuce,生菜,vegetable,g,15,1.4,2.9,0.2,1.3,uploaded: 生菜.png; general lettuce
+Celery,芹菜,vegetable,g,14,1.4,1.8,0.2,1.4,uploaded: 芹菜.png; stem values
+Enoki Mushrooms,金针菇,vegetable,g,29,2.4,4.5,0.4,3.3,uploaded: 金针菇.png; midpoint carbs/fiber
+Aubergine - Raw,茄子_生,vegetable,g,24,1.0,5.7,0.2,3.0,uploaded: 茄子热量表.png; raw low-fat method
+Aubergine - Steamed,茄子_蒸,vegetable,g,28,1.0,6.0,0.5,3.0,uploaded: 茄子热量表.png; steamed estimate
+Aubergine - Roasted,茄子_烤,vegetable,g,36,1.0,7.0,0.5,3.0,uploaded: 茄子热量表.png; roasted estimate
+Beef Tripe,牛肚,protein,g,78,14.5,0.0,1.8,0.0,uploaded: 牛肚热量表.png; range 70-85 kcal
+Beef Omasum,牛百叶,protein,g,80,12.5,0.0,2.8,0.0,uploaded: 牛百叶热量表.png; range 70-89 kcal
+Mussels Meat,青口肉 / 海虹,protein,g,103,12.0,1.0,2.5,0.0,"uploaded: 海虹热量表.png; mussel meat only, range 80-125 kcal"
+Mackerel,鲭鱼,protein,g,261,19.1,0.0,20.5,0.0,"uploaded: 鲭鱼.png; table per 100g, high fat; check exact can label"
+Canned Mackerel,鲭鱼罐头,protein,g,261,19.1,0.0,20.5,0.0,uploaded: 鲭鱼.png; use can drained/edible weight if possible
+Prawns,虾 / 虾仁,protein,g,90,18.0,0.0,1.0,0.0,"uploaded: 虾.png; range 90-100 kcal, edible shrimp meat"
+Low-fat Milk,低脂牛奶,dairy,ml,46,3.4,4.8,1.5,0.0,placeholder; replace with Lidl label
+ON Whey Extreme Milk Chocolate,ON蛋白粉,supplement,g,374,80.0,8.0,4.0,0.0,placeholder; replace with ON label per 100g
+Chia Seeds,奇亚籽,seed,g,486,16.5,42.0,30.7,34.4,not from upload; use 5-10g/day after stool normalizes
+Cherry Tomatoes,小番茄,vegetable,g,18,0.9,3.9,0.2,1.2,placeholder
+Seaweed Flakes,海苔碎,seasoning,g,350,40.0,40.0,4.0,20.0,placeholder; use 3-5g
+Cooked Mixed Brown Rice,糙米饭/杂粮饭_熟重,carb,g,125,2.7,26.0,1.0,1.8,placeholder cooked weight; replace with your cooked batch value
+Cooked White Rice,白米饭_熟重,carb,g,130,2.4,28.0,0.3,0.4,placeholder cooked weight
+Lean Beef Shank,牛腱,protein,g,150,28.0,0.0,4.5,0.0,placeholder cooked lean beef estimate
+Conger Eel,海鳗,protein,g,160,19.0,0.0,8.0,0.0,placeholder; replace when you get label
+Egg,鸡蛋,protein,g,143,12.6,0.7,9.5,0.0,placeholder whole egg per 100g
+Greek Yogurt,希腊酸奶,dairy,g,59,10.0,3.6,0.4,0.0,placeholder nonfat plain
+Light Soy Sauce,生抽,seasoning,ml,60,8.0,6.0,0.0,0.0,placeholder; sodium high; use 5-10ml
+Oil Spray,喷油,seasoning,g,884,0.0,0.0,100.0,0.0,use 2-3g
+Chilli Flakes,辣椒碎,seasoning,g,282,12.0,50.0,14.0,35.0,use 1-3g
+Green Sichuan Pepper Powder,青花椒粉,seasoning,g,250,10.0,50.0,8.0,25.0,use 1-2g
+Red Sichuan Pepper Powder,红花椒粉,seasoning,g,250,10.0,50.0,8.0,25.0,use 1-2g
+Minced Garlic,蒜蓉,seasoning,g,149,6.4,33.0,0.5,2.1,use 5-10g
