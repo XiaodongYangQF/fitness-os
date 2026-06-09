@@ -964,6 +964,156 @@ def inject_css() -> None:
             border: 0 !important;
         }
 
+
+        /* v0.10 softer selected states and tooltip polish */
+        [role="radiogroup"] label:has(input:checked),
+        div[data-baseweb="radio"] label:has(input:checked) {
+            background: #eff6ff !important;
+            color: #1d4ed8 !important;
+            border-color: #bfdbfe !important;
+            box-shadow: inset 0 0 0 1px #bfdbfe !important;
+        }
+
+        [role="radiogroup"] label:has(input:checked) *,
+        div[data-baseweb="radio"] label:has(input:checked) * {
+            background-color: transparent !important;
+            color: #1d4ed8 !important;
+        }
+
+        [role="radiogroup"] input:checked + div,
+        [data-baseweb="radio"] input:checked + div {
+            background-color: #2563eb !important;
+            border-color: #2563eb !important;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12) !important;
+        }
+
+        [data-testid="stTooltipIcon"],
+        button[data-testid="stTooltipIcon"] {
+            background: #2563eb !important;
+            border-radius: 999px !important;
+            width: 18px !important;
+            height: 18px !important;
+            min-width: 18px !important;
+            min-height: 18px !important;
+            padding: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border: 1px solid #1d4ed8 !important;
+            box-shadow: 0 3px 8px rgba(37, 99, 235, 0.18) !important;
+        }
+
+        [data-testid="stTooltipIcon"] svg,
+        button[data-testid="stTooltipIcon"] svg,
+        [data-testid="stTooltipIcon"] svg path,
+        button[data-testid="stTooltipIcon"] svg path {
+            color: #ffffff !important;
+            fill: #ffffff !important;
+            stroke: #ffffff !important;
+        }
+
+        /* Extra fallback for Streamlit help icons in some versions */
+        [aria-label="Show help tooltip"] {
+            background: #2563eb !important;
+            border-radius: 999px !important;
+            color: #ffffff !important;
+            border: 1px solid #1d4ed8 !important;
+        }
+
+        [aria-label="Show help tooltip"] svg,
+        [aria-label="Show help tooltip"] svg path {
+            color: #ffffff !important;
+            fill: #ffffff !important;
+            stroke: #ffffff !important;
+        }
+
+
+        /* v0.11 pill-style meal type selector */
+        div[data-testid="stRadio"] div[role="radiogroup"] {
+            gap: 0.6rem !important;
+            flex-wrap: wrap !important;
+        }
+
+        div[data-testid="stRadio"] div[role="radiogroup"] label {
+            border: 1px solid #dbeafe !important;
+            border-radius: 999px !important;
+            padding: 8px 16px !important;
+            min-height: 42px !important;
+            background: #ffffff !important;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.04) !important;
+            transition: all 0.18s ease !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        div[data-testid="stRadio"] div[role="radiogroup"] label:hover {
+            border-color: #93c5fd !important;
+            background: #eff6ff !important;
+        }
+
+        /* Hide the default radio circle, so the choice looks like a clean pill tab */
+        div[data-testid="stRadio"] div[role="radiogroup"] label > div:first-child {
+            display: none !important;
+        }
+
+        div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+            border-color: #1d4ed8 !important;
+            border-radius: 999px !important;
+            color: #ffffff !important;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.22) !important;
+        }
+
+        div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) *,
+        div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) p,
+        div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) span,
+        div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) div {
+            color: #ffffff !important;
+            background: transparent !important;
+            border-radius: 999px !important;
+            font-weight: 800 !important;
+        }
+
+        /* Remove the old square selected inner block effect */
+        div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) > div,
+        div[data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) > div > div {
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+
+        /* Keep tooltip icon: blue background + white question mark */
+        [data-testid="stTooltipIcon"],
+        button[data-testid="stTooltipIcon"],
+        [aria-label="Show help tooltip"] {
+            background: #2563eb !important;
+            color: #ffffff !important;
+            border-radius: 999px !important;
+            border: 1px solid #1d4ed8 !important;
+        }
+
+        [data-testid="stTooltipIcon"] svg,
+        button[data-testid="stTooltipIcon"] svg,
+        [data-testid="stTooltipIcon"] svg path,
+        button[data-testid="stTooltipIcon"] svg path,
+        [aria-label="Show help tooltip"] svg,
+        [aria-label="Show help tooltip"] svg path {
+            color: #ffffff !important;
+            fill: #ffffff !important;
+            stroke: #ffffff !important;
+        }
+
+        @media (max-width: 640px) {
+            div[data-testid="stRadio"] div[role="radiogroup"] {
+                gap: 0.45rem !important;
+            }
+
+            div[data-testid="stRadio"] div[role="radiogroup"] label {
+                padding: 7px 13px !important;
+                min-height: 40px !important;
+            }
+        }
+
         @media (max-width: 640px) {
             .block-container {
                 padding-top: 0.25rem !important;
@@ -1067,6 +1217,9 @@ def result_card(label: str, value: str, note: str = "") -> None:
 
 
 def animated_success(message: str) -> None:
+    if hasattr(st, "toast"):
+        st.toast(message, icon="✅")
+
     st.markdown(
         f"""
         <div class="success-animation">
