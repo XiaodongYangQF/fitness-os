@@ -32,6 +32,13 @@ MEAL_TARGETS = {
     "Snack": {"kcal": 180, "protein": 10, "fiber": 4},
 }
 
+CALORIE_TOLERANCE = {
+    "Breakfast": 0.18,
+    "Lunch": 0.18,
+    "Dinner": 0.18,
+    "Snack": 0.25,
+}
+
 CATEGORY_DEFAULT_GRAMS = {
     "protein": 180,
     "carb": 140,
@@ -278,6 +285,46 @@ def generate_meal(food_db: pd.DataFrame, selected_foods: List[str], meal_type: s
                 weights[name] = max(lo, weights[name] - 15)
         else:
             break
+
+
+    # Final calorie pass: the automatically generated plan should normally be
+    # inside the meal-specific calorie range. This prevents the generated plan
+    # itself from showing a calorie warning before the user manually adjusts it.
+    low_kcal, high_kcal = calorie_band(meal_type)
+    for _ in range(18):
+        m = build()
+        totals = meal_totals(m)
+
+        if low_kcal <= totals["kcal"] <= high_kcal:
+            break
+
+        carb_foods = selected[selected["category"] == "carb"]
+        protein_foods = selected[selected["category"] == "protein"]
+
+        if totals["kcal"] < low_kcal:
+            if not carb_foods.empty:
+                for name in carb_foods["food_name"]:
+                    lo, hi = CATEGORY_LIMITS["carb"]
+                    weights[name] = min(hi, weights[name] + 10)
+            elif not protein_foods.empty:
+                for name in protein_foods["food_name"]:
+                    lo, hi = CATEGORY_LIMITS["protein"]
+                    weights[name] = min(hi, weights[name] + 10)
+            else:
+                break
+
+        elif totals["kcal"] > high_kcal:
+            if not carb_foods.empty:
+                for name in carb_foods["food_name"]:
+                    lo, hi = CATEGORY_LIMITS["carb"]
+                    weights[name] = max(lo, weights[name] - 10)
+            elif not protein_foods.empty:
+                for name in protein_foods["food_name"]:
+                    lo, hi = CATEGORY_LIMITS["protein"]
+                    weights[name] = max(lo, weights[name] - 10)
+            else:
+                break
+
 
     # Fiber control
     m = build()
@@ -1230,37 +1277,73 @@ def animated_success(message: str) -> None:
     )
 
 
-def nutrition_status_badges(totals: Dict[str, float], meal_type: str) -> None:
+def calorie_band(meal_type: str) -> Tuple[float, float]:
+    target = MEAL_TARGETS[meal_type]["kcal"]
+    tol = CALORIE_TOLERANCE.get(meal_type, 0.18)
+    return target * (1 - tol), target * (1 + tol)
+
+
+def calorie_status(totals: Dict[str, float], meal_type: str) -> str:
+    low, high = calorie_band(meal_type)
+    if totals["kcal"] < low:
+        return "low"
+    if totals["kcal"] > high:
+        return "high"
+    return "good"
+
+
+def nutrition_status_badges(
+    totals: Dict[str, float],
+    meal_type: str,
+    show_calorie_warning: bool = True,
+) -> None:
     target = MEAL_TARGETS[meal_type]
     badges = []
 
     if totals["protein"] >= target["protein"] * 0.9:
-        badges.append(("<span class='status-good'>Protein target reached</span>"))
+        badges.append("<span class='status-good'>Protein target reached</span>")
     else:
-        badges.append(("<span class='status-warn'>Protein is low</span>"))
+        badges.append("<span class='status-warn'>Protein is low</span>")
 
     if totals["fiber"] <= target["fiber"] * 1.4:
-        badges.append(("<span class='status-good'>Fiber is moderate</span>"))
+        badges.append("<span class='status-good'>Fiber is moderate</span>")
     else:
-        badges.append(("<span class='status-warn'>Fiber is high</span>"))
+        badges.append("<span class='status-warn'>Fiber is high</span>")
 
-    if DAILY_TARGETS["kcal_min"] / 3 <= totals["kcal"] <= DAILY_TARGETS["kcal_max"] / 2:
-        badges.append(("<span class='status-good'>Good fat-loss range</span>"))
-    else:
-        badges.append(("<span class='status-warn'>Check calories</span>"))
+    c_status = calorie_status(totals, meal_type)
+    if c_status == "good":
+        badges.append("<span class='status-good'>Calories are balanced</span>")
+    elif show_calorie_warning:
+        if c_status == "low":
+            badges.append("<span class='status-warn'>Calories are low</span>")
+        else:
+            badges.append("<span class='status-warn'>Calories are high</span>")
 
     st.markdown("".join(badges), unsafe_allow_html=True)
 
 
-def nutrition_results_panel(edited: pd.DataFrame, meal_type: str, context: str = "Plan") -> Dict[str, float]:
+def nutrition_results_panel(
+    edited: pd.DataFrame,
+    meal_type: str,
+    context: str = "Plan",
+    show_calorie_warning: bool = True,
+) -> Dict[str, float]:
     totals = meal_totals(edited)
+    low, high = calorie_band(meal_type)
 
-    result_card("Calories", f"{totals['kcal']:.0f} kcal", f"{context} energy")
+    result_card("Calories", f"{totals['kcal']:.0f} kcal", f"Target range: {low:.0f}-{high:.0f} kcal")
     result_card("Protein", f"{totals['protein']:.1f} g", f"Target: {MEAL_TARGETS[meal_type]['protein']}g")
     result_card("Fiber", f"{totals['fiber']:.1f} g", f"Target: around {MEAL_TARGETS[meal_type]['fiber']}g")
     result_card("Carbs / Fat", f"{totals['carbs']:.1f}g / {totals['fat']:.1f}g", "Balance check")
 
-    nutrition_status_badges(totals, meal_type)
+    nutrition_status_badges(totals, meal_type, show_calorie_warning=show_calorie_warning)
+
+    if show_calorie_warning:
+        c_status = calorie_status(totals, meal_type)
+        if c_status == "low":
+            st.info("Calories are below the target range. This can be fine for a light meal, but check whether the whole day is still enough.")
+        elif c_status == "high":
+            st.warning("Calories are above the target range. Check rice, oil, nuts/seeds, or fatty fish portions.")
 
     if totals["fiber"] > MEAL_TARGETS[meal_type]["fiber"] * 1.4:
         st.warning("Fiber is high. If stool is watery, reduce raw vegetables, apples or chia seeds for a few days.")
@@ -1351,7 +1434,7 @@ def meal_planner_page(food_db: pd.DataFrame) -> None:
             result_card("Protein", "—", "Generate a plan first")
             result_card("Fiber", "—", "Generate a plan first")
         else:
-            totals = nutrition_results_panel(edited, generated_meal_type, context="Planned meal")
+            totals = nutrition_results_panel(edited, generated_meal_type, context="Planned meal", show_calorie_warning=False)
             st.caption(
                 f"Planner total: {totals['kcal']:.0f} kcal · "
                 f"{totals['protein']:.1f}g protein · {totals['fiber']:.1f}g fiber"
