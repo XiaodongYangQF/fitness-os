@@ -523,9 +523,12 @@ def inject_css() -> None:
         <style>
         :root {
             --card-bg: #ffffff;
-            --card-border: #e8edf3;
+            --card-border: #dbeafe;
             --muted: #667085;
             --accent: #2563eb;
+            --accent-strong: #1d4ed8;
+            --accent-soft: #eff6ff;
+            --accent-line: #bfdbfe;
             --dark: #0f172a;
         }
 
@@ -567,7 +570,7 @@ def inject_css() -> None:
         }
 
         .hero-card {
-            background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%);
+            background: linear-gradient(135deg, #0f3b89 0%, #2563eb 58%, #38bdf8 100%);
             color: white;
             border-radius: 24px;
             padding: 22px 20px;
@@ -663,14 +666,14 @@ def inject_css() -> None:
             border-radius: 22px;
             padding: 18px 18px;
             margin: 8px 0 16px 0;
-            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+            box-shadow: 0 10px 28px rgba(37, 99, 235, 0.08);
         }
 
         .panel-title {
             font-weight: 900;
             font-size: 1.05rem;
             margin-bottom: 4px;
-            color: #101828;
+            color: #0f172a;
         }
 
         .panel-subtitle {
@@ -680,22 +683,23 @@ def inject_css() -> None:
         }
 
         .result-card {
-            background: #f8fafc;
-            border: 1px solid #e5e7eb;
+            background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
+            border: 1px solid var(--accent-line);
             border-radius: 18px;
             padding: 14px 14px;
             margin-bottom: 12px;
+            box-shadow: 0 8px 22px rgba(37, 99, 235, 0.06);
         }
 
         .result-label {
-            color: #667085;
+            color: #1d4ed8;
             font-size: 0.82rem;
-            font-weight: 700;
+            font-weight: 800;
             margin-bottom: 6px;
         }
 
         .result-value {
-            color: #1f2937;
+            color: #0f172a;
             font-size: 1.45rem;
             font-weight: 900;
             line-height: 1.15;
@@ -711,8 +715,9 @@ def inject_css() -> None:
             display: inline-block;
             padding: 7px 10px;
             border-radius: 999px;
-            background: #ecfdf3;
-            color: #027a48;
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
             font-weight: 800;
             font-size: 0.82rem;
             margin: 4px 4px 4px 0;
@@ -722,15 +727,16 @@ def inject_css() -> None:
             display: inline-block;
             padding: 7px 10px;
             border-radius: 999px;
-            background: #fffaeb;
-            color: #b54708;
+            background: #fffbeb;
+            color: #b45309;
+            border: 1px solid #fde68a;
             font-weight: 800;
             font-size: 0.82rem;
             margin: 4px 4px 4px 0;
         }
 
         .workflow-step {
-            color: #1d4ed8;
+            color: #2563eb;
             font-weight: 900;
             font-size: 0.86rem;
             text-transform: uppercase;
@@ -740,8 +746,117 @@ def inject_css() -> None:
 
         .small-divider {
             height: 1px;
-            background: #eef2f7;
+            background: #dbeafe;
             margin: 12px 0 16px 0;
+        }
+
+        .success-animation {
+            border: 1px solid #93c5fd;
+            border-radius: 18px;
+            padding: 14px 16px;
+            margin: 12px 0;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            color: #1d4ed8;
+            font-weight: 900;
+            box-shadow: 0 10px 28px rgba(37, 99, 235, 0.14);
+            animation: successPulse 1.15s ease-out;
+        }
+
+        .success-animation .check {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            background: #2563eb;
+            color: white;
+            margin-right: 8px;
+            animation: checkPop 0.55s ease-out;
+        }
+
+        @keyframes successPulse {
+            0% { transform: translateY(8px); opacity: 0; box-shadow: 0 0 0 rgba(37, 99, 235, 0); }
+            55% { transform: translateY(0); opacity: 1; box-shadow: 0 0 0 10px rgba(37, 99, 235, 0.10); }
+            100% { transform: translateY(0); opacity: 1; box-shadow: 0 10px 28px rgba(37, 99, 235, 0.14); }
+        }
+
+        @keyframes checkPop {
+            0% { transform: scale(0.65); opacity: 0; }
+            70% { transform: scale(1.12); opacity: 1; }
+            100% { transform: scale(1.0); opacity: 1; }
+        }
+
+        /* Streamlit widgets: push everything toward the same blue theme */
+        .stButton button,
+        .stDownloadButton button {
+            border-radius: 999px;
+            min-height: 44px;
+            font-weight: 800;
+            border-color: #bfdbfe !important;
+        }
+
+        .stButton button[kind="primary"],
+        button[data-testid="stBaseButton-primary"] {
+            background: linear-gradient(135deg, #2563eb 0%, #38bdf8 100%) !important;
+            color: white !important;
+            border: 0 !important;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.22);
+        }
+
+        div[data-testid="stExpander"] {
+            border-radius: 18px;
+            border-color: #dbeafe !important;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.04);
+        }
+
+        div[data-baseweb="radio"] label,
+        div[role="radiogroup"] label {
+            border-color: #bfdbfe !important;
+        }
+
+        div[data-baseweb="radio"] label:has(input:checked),
+        div[role="radiogroup"] label:has(input:checked) {
+            background: #eff6ff !important;
+            border-color: #2563eb !important;
+            color: #1d4ed8 !important;
+        }
+
+        [data-testid="stSlider"] [role="slider"] {
+            background-color: #2563eb !important;
+            border-color: #2563eb !important;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 99999;
+            background: rgba(255,255,255,0.96);
+            border-top: 1px solid #bfdbfe;
+            padding: 8px 8px 12px 8px;
+            display: flex;
+            justify-content: space-around;
+            gap: 6px;
+            box-shadow: 0 -8px 24px rgba(37, 99, 235, 0.10);
+        }
+
+        .bottom-nav a {
+            text-decoration: none !important;
+            color: #475467 !important;
+            font-size: 0.76rem;
+            font-weight: 800;
+            padding: 8px 6px;
+            border-radius: 14px;
+            text-align: center;
+            min-width: 54px;
+        }
+
+        .bottom-nav a.active {
+            background: #eff6ff;
+            color: #1d4ed8 !important;
+            border: 1px solid #bfdbfe;
         }
 
         @media (max-width: 640px) {
@@ -846,6 +961,17 @@ def result_card(label: str, value: str, note: str = "") -> None:
     )
 
 
+def animated_success(message: str) -> None:
+    st.markdown(
+        f"""
+        <div class="success-animation">
+          <span class="check">✓</span>{message}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def nutrition_status_badges(totals: Dict[str, float], meal_type: str) -> None:
     target = MEAL_TARGETS[meal_type]
     badges = []
@@ -935,10 +1061,14 @@ def meal_planner_page(food_db: pd.DataFrame) -> None:
             generated = generate_meal(food_db, selected_foods, meal_type)
             st.session_state["active_meal_type"] = meal_type
             st.session_state["active_meal_plan"] = generated
+            st.session_state["meal_plan_generated_animation"] = True
         st.markdown("</div>", unsafe_allow_html=True)
 
     generated = st.session_state.get("active_meal_plan", pd.DataFrame())
     generated_meal_type = st.session_state.get("active_meal_type", meal_type)
+
+    if st.session_state.pop("meal_plan_generated_animation", False):
+        animated_success("Meal plan generated. Suggested weights are ready.")
 
     edited = pd.DataFrame()
 
@@ -970,7 +1100,7 @@ def meal_planner_page(food_db: pd.DataFrame) -> None:
             )
             if st.button("Use this plan in Diet Log", use_container_width=True):
                 save_latest_plan(generated_meal_type, edited)
-                st.success("Saved as the latest meal plan. Open Diet Log and choose the date to log it.")
+                animated_success("Plan saved. You can now open Diet Log and choose the date.")
         st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -1069,7 +1199,7 @@ def diet_log_page(food_db: pd.DataFrame) -> None:
                         }
                     )
                 append_csv(FOOD_LOG_PATH, rows)
-                st.success(f"Saved {meal_type} for {log_date}.")
+                animated_success(f"Saved {meal_type} for {log_date}.")
         st.markdown("</div>", unsafe_allow_html=True)
 
 
