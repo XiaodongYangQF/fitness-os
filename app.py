@@ -51,6 +51,7 @@ CATEGORY_LIMITS = {
     "dairy": (50, 500),
     "supplement": (10, 50),
     "seasoning": (0, 30),
+    "oil": (0, 30),
     "seed": (0, 30),
     "other": (0, 500),
 }
@@ -126,6 +127,43 @@ def load_food_db() -> pd.DataFrame:
     df = df.copy()
     df["food_name"] = df["food_name"].astype(str)
     df["category"] = df["category"].astype(str).str.lower()
+
+    # Personal database cleanup:
+    # Keep eggplant simple. For fat-loss tracking, cooking style is less useful than
+    # separating the vegetable from added oil. Remove raw/steamed/roasted/braised
+    # aubergine variants and use one clean entry instead.
+    aubergine_mask = df["food_name"].str.lower().str.contains("aubergine|eggplant", regex=True, na=False)
+    df = df.loc[~aubergine_mask].copy()
+
+    extra_foods = pd.DataFrame(
+        [
+            {
+                "food_name": "Aubergine / Eggplant",
+                "category": "vegetable",
+                "unit": "g",
+                "kcal_per_100g": 25,
+                "protein_per_100g": 1.0,
+                "carbs_per_100g": 5.9,
+                "fat_per_100g": 0.2,
+                "fiber_per_100g": 3.0,
+            },
+            {
+                "food_name": "Cooking Oil / Spray Oil",
+                "category": "oil",
+                "unit": "g",
+                "kcal_per_100g": 884,
+                "protein_per_100g": 0,
+                "carbs_per_100g": 0,
+                "fat_per_100g": 100,
+                "fiber_per_100g": 0,
+            },
+        ]
+    )
+
+    existing_names = set(df["food_name"].str.lower())
+    extra_foods = extra_foods[~extra_foods["food_name"].str.lower().isin(existing_names)]
+    df = pd.concat([df, extra_foods], ignore_index=True)
+
     df["display"] = df["food_name"] + "  ·  " + df["category"].str.title()
     return df
 
@@ -271,7 +309,7 @@ def food_group(food_name: str, category: str) -> str:
     if food_name in BREAKFAST_STAPLES:
         return "Breakfast Staples"
     category = str(category).lower()
-    if category in {"protein", "carb", "vegetable", "fruit", "dairy", "supplement", "seasoning", "seed"}:
+    if category in {"protein", "carb", "vegetable", "fruit", "dairy", "supplement", "seasoning", "oil", "seed"}:
         return category.title()
     return "Other"
 
@@ -281,9 +319,9 @@ def build_food_groups(food_db: pd.DataFrame, meal_type: str) -> Dict[str, pd.Dat
     df["group"] = [food_group(name, cat) for name, cat in zip(df["food_name"], df["category"])]
 
     if meal_type == "Breakfast":
-        order = ["Breakfast Staples", "Fruit", "Dairy", "Supplement", "Carb", "Seed", "Protein", "Vegetable", "Other"]
+        order = ["Breakfast Staples", "Fruit", "Dairy", "Supplement", "Carb", "Protein", "Vegetable", "Seed", "Oil", "Other"]
     else:
-        order = ["Protein", "Carb", "Vegetable", "Seasoning", "Fruit", "Dairy", "Supplement", "Seed", "Other"]
+        order = ["Protein", "Carb", "Vegetable", "Seasoning", "Oil", "Fruit", "Dairy", "Supplement", "Seed", "Other"]
 
     groups: Dict[str, pd.DataFrame] = {}
     for group_name in order:
@@ -857,6 +895,73 @@ def inject_css() -> None:
             background: #eff6ff;
             color: #1d4ed8 !important;
             border: 1px solid #bfdbfe;
+        }
+
+
+        /* v0.9 unified blue control overrides */
+        html, body, [class*="css"] {
+            --primary-color: #2563eb;
+            --primary: #2563eb;
+        }
+
+        /* Sliders */
+        [data-testid="stSlider"] [role="slider"] {
+            background: #2563eb !important;
+            border-color: #2563eb !important;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14) !important;
+        }
+
+        [data-testid="stSlider"] [data-baseweb="slider"] div {
+            color: #2563eb !important;
+        }
+
+        [data-testid="stSlider"] [data-baseweb="slider"] div[style*="background"] {
+            background-color: #2563eb !important;
+        }
+
+        /* Checkbox and radio controls */
+        [data-baseweb="checkbox"] svg,
+        [data-testid="stCheckbox"] svg {
+            color: #2563eb !important;
+            fill: #2563eb !important;
+        }
+
+        [data-baseweb="checkbox"] div[aria-checked="true"],
+        [data-testid="stCheckbox"] div[aria-checked="true"] {
+            background-color: #2563eb !important;
+            border-color: #2563eb !important;
+        }
+
+        [role="radiogroup"] label:has(input:checked) {
+            background: #eff6ff !important;
+            color: #1d4ed8 !important;
+            border-color: #bfdbfe !important;
+        }
+
+        [role="radiogroup"] input:checked + div,
+        [data-baseweb="radio"] input:checked + div {
+            background-color: #2563eb !important;
+            border-color: #2563eb !important;
+        }
+
+        /* Numeric inputs focus */
+        input:focus,
+        textarea:focus {
+            border-color: #2563eb !important;
+            box-shadow: 0 0 0 1px #2563eb !important;
+        }
+
+        /* Remove red Streamlit accents when selected */
+        [aria-checked="true"] {
+            border-color: #2563eb !important;
+        }
+
+        /* Buttons */
+        .stButton button[kind="primary"],
+        button[data-testid="stBaseButton-primary"] {
+            background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 65%, #38bdf8 100%) !important;
+            color: white !important;
+            border: 0 !important;
         }
 
         @media (max-width: 640px) {
