@@ -14,6 +14,7 @@ FOOD_DB_PATH = DATA_DIR / "food_database.csv"
 FOOD_LOG_PATH = DATA_DIR / "food_log.csv"
 WORKOUT_LOG_PATH = DATA_DIR / "workout_log.csv"
 BODY_LOG_PATH = DATA_DIR / "body_log.csv"
+LATEST_PLAN_PATH = DATA_DIR / "latest_meal_plan.csv"
 
 DAILY_TARGETS = {
     "kcal_min": 1800,
@@ -43,14 +44,15 @@ CATEGORY_DEFAULT_GRAMS = {
 }
 
 CATEGORY_LIMITS = {
-    "protein": (100, 280),
-    "carb": (80, 220),
-    "vegetable": (50, 180),
-    "fruit": (80, 200),
-    "dairy": (100, 350),
-    "supplement": (20, 35),
-    "seasoning": (1, 15),
-    "seed": (5, 12),
+    "protein": (100, 300),
+    "carb": (60, 260),
+    "vegetable": (30, 250),
+    "fruit": (50, 250),
+    "dairy": (50, 500),
+    "supplement": (10, 50),
+    "seasoning": (0, 30),
+    "seed": (0, 30),
+    "other": (0, 500),
 }
 
 PAGE_OPTIONS = ["Meal Planner", "Diet Log", "Training Planner", "Workout Log", "Progress", "Settings"]
@@ -61,19 +63,6 @@ MEAL_DEFAULT_FOODS = {
     "Dinner": ["Mackerel", "Beef Omasum", "Lettuce", "Celery", "Enoki Mushrooms"],
     "Snack": ["Apple", "Banana"],
 }
-
-FOOD_GROUP_ORDER = [
-    "Breakfast Staples",
-    "Protein",
-    "Carb",
-    "Vegetable",
-    "Fruit",
-    "Dairy",
-    "Supplement",
-    "Seasoning",
-    "Seed",
-    "Other",
-]
 
 BREAKFAST_STAPLES = {
     "Low Fat Milk",
@@ -162,6 +151,7 @@ def safe_key(text: str) -> str:
         .replace("·", "_")
         .replace("(", "")
         .replace(")", "")
+        .replace(".", "_")
         .lower()
     )
 
@@ -186,6 +176,18 @@ def meal_totals(df: pd.DataFrame) -> Dict[str, float]:
     return {k: round(float(df[k].sum()), 1) for k in ["kcal", "protein", "carbs", "fat", "fiber"]}
 
 
+def calculate_meal_from_weights(food_db: pd.DataFrame, weights: Dict[str, float]) -> pd.DataFrame:
+    rows = []
+    for food_name, weight in weights.items():
+        food_match = food_db[food_db["food_name"] == food_name]
+        if food_match.empty or float(weight) <= 0:
+            continue
+        rows.append(calc_row(food_match.iloc[0], float(weight)))
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows).sort_values(["category", "food_name"])
+
+
 def generate_meal(food_db: pd.DataFrame, selected_foods: List[str], meal_type: str) -> pd.DataFrame:
     if not selected_foods:
         return pd.DataFrame()
@@ -203,6 +205,7 @@ def generate_meal(food_db: pd.DataFrame, selected_foods: List[str], meal_type: s
     def build() -> pd.DataFrame:
         return pd.DataFrame([calc_row(row, weights[row["food_name"]]) for _, row in selected.iterrows()])
 
+    # Protein adjustment
     for _ in range(12):
         m = build()
         totals = meal_totals(m)
@@ -220,6 +223,7 @@ def generate_meal(food_db: pd.DataFrame, selected_foods: List[str], meal_type: s
         else:
             break
 
+    # Calorie adjustment via carbs
     for _ in range(12):
         m = build()
         totals = meal_totals(m)
@@ -237,6 +241,7 @@ def generate_meal(food_db: pd.DataFrame, selected_foods: List[str], meal_type: s
         else:
             break
 
+    # Fiber control
     m = build()
     totals = meal_totals(m)
     if totals["fiber"] > target["fiber"] * 1.4:
@@ -247,16 +252,19 @@ def generate_meal(food_db: pd.DataFrame, selected_foods: List[str], meal_type: s
     return build().sort_values(["category", "food_name"])
 
 
-def calculate_meal_from_weights(food_db: pd.DataFrame, weights: Dict[str, float]) -> pd.DataFrame:
-    rows = []
-    for food_name, weight in weights.items():
-        food_match = food_db[food_db["food_name"] == food_name]
-        if food_match.empty or float(weight) <= 0:
-            continue
-        rows.append(calc_row(food_match.iloc[0], float(weight)))
-    if not rows:
-        return pd.DataFrame()
-    return pd.DataFrame(rows).sort_values(["category", "food_name"])
+def save_latest_plan(meal_type: str, plan_df: pd.DataFrame) -> None:
+    if plan_df.empty:
+        return
+    out = plan_df.copy()
+    out.insert(0, "planned_at", str(date.today()))
+    out.insert(1, "meal", meal_type)
+    out.to_csv(LATEST_PLAN_PATH, index=False)
+
+
+def load_latest_plan() -> pd.DataFrame:
+    if LATEST_PLAN_PATH.exists():
+        return pd.read_csv(LATEST_PLAN_PATH)
+    return pd.DataFrame()
 
 
 def food_group(food_name: str, category: str) -> str:
@@ -272,12 +280,12 @@ def build_food_groups(food_db: pd.DataFrame, meal_type: str) -> Dict[str, pd.Dat
     df = food_db.copy()
     df["group"] = [food_group(name, cat) for name, cat in zip(df["food_name"], df["category"])]
 
-    groups: Dict[str, pd.DataFrame] = {}
     if meal_type == "Breakfast":
-        order = ["Breakfast Staples", "Fruit", "Dairy", "Supplement", "Carb", "Seed", "Other"]
+        order = ["Breakfast Staples", "Fruit", "Dairy", "Supplement", "Carb", "Seed", "Protein", "Vegetable", "Other"]
     else:
         order = ["Protein", "Carb", "Vegetable", "Seasoning", "Fruit", "Dairy", "Supplement", "Seed", "Other"]
 
+    groups: Dict[str, pd.DataFrame] = {}
     for group_name in order:
         g = df[df["group"] == group_name].sort_values("food_name")
         if not g.empty:
@@ -285,25 +293,124 @@ def build_food_groups(food_db: pd.DataFrame, meal_type: str) -> Dict[str, pd.Dat
     return groups
 
 
+def dual_weight_input(food_name: str, category: str, default_weight: float, key_prefix: str) -> float:
+    cat = str(category).lower()
+    lo, hi = CATEGORY_LIMITS.get(cat, CATEGORY_LIMITS["other"])
+    max_value = float(max(hi, default_weight + 50, 100))
+    base_key = f"{key_prefix}_{safe_key(food_name)}"
+    value_key = f"{base_key}_value"
+    slider_key = f"{base_key}_slider"
+    number_key = f"{base_key}_number"
+
+    if value_key not in st.session_state:
+        st.session_state[value_key] = float(default_weight)
+    if slider_key not in st.session_state:
+        st.session_state[slider_key] = float(default_weight)
+    if number_key not in st.session_state:
+        st.session_state[number_key] = float(default_weight)
+
+    def sync_from_slider() -> None:
+        value = float(st.session_state[slider_key])
+        st.session_state[value_key] = value
+        st.session_state[number_key] = value
+
+    def sync_from_number() -> None:
+        value = float(st.session_state[number_key])
+        value = max(float(lo), min(value, max_value))
+        st.session_state[value_key] = value
+        st.session_state[slider_key] = value
+        st.session_state[number_key] = value
+
+    c1, c2 = st.columns([2.2, 1])
+    with c1:
+        st.slider(
+            food_name,
+            min_value=float(lo),
+            max_value=max_value,
+            step=5.0,
+            key=slider_key,
+            on_change=sync_from_slider,
+        )
+    with c2:
+        st.number_input(
+            "g/ml",
+            min_value=float(lo),
+            max_value=max_value,
+            step=5.0,
+            format="%.0f",
+            key=number_key,
+            on_change=sync_from_number,
+            label_visibility="collapsed",
+        )
+
+    return float(st.session_state[value_key])
+
+
+def ingredient_selector(food_db: pd.DataFrame, meal_type: str, default_selected: List[str], key_prefix: str) -> List[str]:
+    default_selected_set = set(default_selected)
+    selected_foods: List[str] = []
+
+    st.caption("Select ingredients first. The app will generate reasonable weights in the next step.")
+
+    groups = build_food_groups(food_db, meal_type)
+    for group_name, group_df in groups.items():
+        expanded = group_name in {"Breakfast Staples", "Protein", "Carb", "Vegetable"}
+        with st.expander(group_name, expanded=expanded):
+            cols = st.columns(2)
+            for i, (_, row) in enumerate(group_df.iterrows()):
+                food_name = row["food_name"]
+                category = str(row["category"]).title()
+                unit = str(row.get("unit", "g"))
+                checked = cols[i % 2].checkbox(
+                    f"{food_name}",
+                    value=food_name in default_selected_set,
+                    help=f"{category} · {float(row['kcal_per_100g']):.0f} kcal/100{unit}",
+                    key=f"{key_prefix}_select_{safe_key(meal_type)}_{safe_key(food_name)}",
+                )
+                if checked:
+                    selected_foods.append(food_name)
+
+    return selected_foods
+
+
+def plan_weight_editor(food_db: pd.DataFrame, plan_df: pd.DataFrame, key_prefix: str) -> pd.DataFrame:
+    if plan_df.empty:
+        return pd.DataFrame()
+
+    st.subheader("Adjust weights")
+    st.caption("Use the slider for quick adjustment, or type the exact weight in the box.")
+
+    weights: Dict[str, float] = {}
+    for _, row in plan_df.iterrows():
+        food_name = row["food_name"]
+        category = str(row["category"]).lower()
+        default_weight = float(row["weight_g"])
+
+        with st.container():
+            weights[food_name] = dual_weight_input(
+                food_name=food_name,
+                category=category,
+                default_weight=default_weight,
+                key_prefix=key_prefix,
+            )
+
+    return calculate_meal_from_weights(food_db, weights)
+
+
 def food_picker_with_weights(
     food_db: pd.DataFrame,
     meal_type: str,
     default_selected: List[str],
+    weight_defaults: Dict[str, float],
     key_prefix: str,
 ) -> pd.DataFrame:
-    """Select foods from visible groups and type weights directly."""
+    """Food groups are visible. Checked foods show slider + exact input."""
     default_selected_set = set(default_selected)
-    suggested = generate_meal(food_db, default_selected, meal_type)
-    suggested_weight = {
-        row["food_name"]: float(row["weight_g"])
-        for _, row in suggested.iterrows()
-    } if not suggested.empty else {}
-
-    st.caption("Select foods from the list below, then type the actual grams/ml from your kitchen scale.")
-
-    weights: Dict[str, float] = {}
     groups = build_food_groups(food_db, meal_type)
 
+    st.caption("Select foods from the list, then use slider or exact input for weights.")
+
+    weights: Dict[str, float] = {}
     for group_name, group_df in groups.items():
         expanded = group_name in {"Breakfast Staples", "Protein", "Carb", "Vegetable"}
         with st.expander(group_name, expanded=expanded):
@@ -311,33 +418,26 @@ def food_picker_with_weights(
                 food_name = row["food_name"]
                 category = str(row["category"]).title()
                 unit = str(row.get("unit", "g"))
-                default_checked = food_name in default_selected_set
+                checked_key = f"{key_prefix}_check_{safe_key(meal_type)}_{safe_key(food_name)}"
 
-                c1, c2 = st.columns([1.2, 1.0])
-                with c1:
-                    checked = st.checkbox(
-                        f"{food_name}",
-                        value=default_checked,
-                        key=f"{key_prefix}_check_{safe_key(meal_type)}_{safe_key(food_name)}",
+                checked = st.checkbox(
+                    f"{food_name}",
+                    value=food_name in default_selected_set,
+                    help=f"{category} · {float(row['kcal_per_100g']):.0f} kcal/100{unit}",
+                    key=checked_key,
+                )
+
+                if checked:
+                    default_weight = weight_defaults.get(
+                        food_name,
+                        CATEGORY_DEFAULT_GRAMS.get(str(row["category"]).lower(), 100),
                     )
-                    st.caption(f"{category} · kcal {float(row['kcal_per_100g']):.0f}/100{unit}")
-
-                with c2:
-                    if checked:
-                        default_weight = suggested_weight.get(
-                            food_name,
-                            CATEGORY_DEFAULT_GRAMS.get(str(row["category"]).lower(), 100),
-                        )
-                        weights[food_name] = st.number_input(
-                            "Weight",
-                            min_value=0.0,
-                            max_value=1000.0,
-                            value=float(default_weight),
-                            step=5.0,
-                            format="%.0f",
-                            label_visibility="collapsed",
-                            key=f"{key_prefix}_weight_{safe_key(meal_type)}_{safe_key(food_name)}",
-                        )
+                    weights[food_name] = dual_weight_input(
+                        food_name=food_name,
+                        category=str(row["category"]),
+                        default_weight=float(default_weight),
+                        key_prefix=f"{key_prefix}_weight_{safe_key(meal_type)}",
+                    )
 
     return calculate_meal_from_weights(food_db, weights)
 
@@ -434,7 +534,7 @@ def inject_css() -> None:
         .block-container {
             padding-top: 0.5rem !important;
             padding-bottom: 6.5rem !important;
-            max-width: 900px !important;
+            max-width: 940px !important;
         }
 
         header[data-testid="stHeader"],
@@ -551,10 +651,97 @@ def inject_css() -> None:
             font-weight: 700;
         }
 
-        /* Make food picker inputs more compact on phone */
         div[data-testid="stExpander"] {
             border-radius: 18px;
             border-color: #e8edf3;
+        }
+
+
+        .panel-card {
+            background: #ffffff;
+            border: 1px solid var(--card-border);
+            border-radius: 22px;
+            padding: 18px 18px;
+            margin: 8px 0 16px 0;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+        }
+
+        .panel-title {
+            font-weight: 900;
+            font-size: 1.05rem;
+            margin-bottom: 4px;
+            color: #101828;
+        }
+
+        .panel-subtitle {
+            color: #667085;
+            font-size: 0.88rem;
+            margin-bottom: 12px;
+        }
+
+        .result-card {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 18px;
+            padding: 14px 14px;
+            margin-bottom: 12px;
+        }
+
+        .result-label {
+            color: #667085;
+            font-size: 0.82rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .result-value {
+            color: #1f2937;
+            font-size: 1.45rem;
+            font-weight: 900;
+            line-height: 1.15;
+        }
+
+        .result-note {
+            color: #667085;
+            font-size: 0.82rem;
+            line-height: 1.35;
+        }
+
+        .status-good {
+            display: inline-block;
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: #ecfdf3;
+            color: #027a48;
+            font-weight: 800;
+            font-size: 0.82rem;
+            margin: 4px 4px 4px 0;
+        }
+
+        .status-warn {
+            display: inline-block;
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: #fffaeb;
+            color: #b54708;
+            font-weight: 800;
+            font-size: 0.82rem;
+            margin: 4px 4px 4px 0;
+        }
+
+        .workflow-step {
+            color: #1d4ed8;
+            font-weight: 900;
+            font-size: 0.86rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 8px;
+        }
+
+        .small-divider {
+            height: 1px;
+            background: #eef2f7;
+            margin: 12px 0 16px 0;
         }
 
         @media (max-width: 640px) {
@@ -635,6 +822,79 @@ def card(title: str, text: str) -> None:
     )
 
 
+def panel_header(step: str, title: str, subtitle: str = "") -> None:
+    st.markdown(
+        f"""
+        <div class="workflow-step">{step}</div>
+        <div class="panel-title">{title}</div>
+        <div class="panel-subtitle">{subtitle}</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def result_card(label: str, value: str, note: str = "") -> None:
+    st.markdown(
+        f"""
+        <div class="result-card">
+          <div class="result-label">{label}</div>
+          <div class="result-value">{value}</div>
+          <div class="result-note">{note}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def nutrition_status_badges(totals: Dict[str, float], meal_type: str) -> None:
+    target = MEAL_TARGETS[meal_type]
+    badges = []
+
+    if totals["protein"] >= target["protein"] * 0.9:
+        badges.append(("<span class='status-good'>Protein target reached</span>"))
+    else:
+        badges.append(("<span class='status-warn'>Protein is low</span>"))
+
+    if totals["fiber"] <= target["fiber"] * 1.4:
+        badges.append(("<span class='status-good'>Fiber is moderate</span>"))
+    else:
+        badges.append(("<span class='status-warn'>Fiber is high</span>"))
+
+    if DAILY_TARGETS["kcal_min"] / 3 <= totals["kcal"] <= DAILY_TARGETS["kcal_max"] / 2:
+        badges.append(("<span class='status-good'>Good fat-loss range</span>"))
+    else:
+        badges.append(("<span class='status-warn'>Check calories</span>"))
+
+    st.markdown("".join(badges), unsafe_allow_html=True)
+
+
+def nutrition_results_panel(edited: pd.DataFrame, meal_type: str, context: str = "Plan") -> Dict[str, float]:
+    totals = meal_totals(edited)
+
+    result_card("Calories", f"{totals['kcal']:.0f} kcal", f"{context} energy")
+    result_card("Protein", f"{totals['protein']:.1f} g", f"Target: {MEAL_TARGETS[meal_type]['protein']}g")
+    result_card("Fiber", f"{totals['fiber']:.1f} g", f"Target: around {MEAL_TARGETS[meal_type]['fiber']}g")
+    result_card("Carbs / Fat", f"{totals['carbs']:.1f}g / {totals['fat']:.1f}g", "Balance check")
+
+    nutrition_status_badges(totals, meal_type)
+
+    if totals["fiber"] > MEAL_TARGETS[meal_type]["fiber"] * 1.4:
+        st.warning("Fiber is high. If stool is watery, reduce raw vegetables, apples or chia seeds for a few days.")
+    if totals["protein"] < MEAL_TARGETS[meal_type]["protein"] * 0.8:
+        st.warning("Protein is low. Add beef tripe, beef omasum, mackerel, mussels, prawns or whey.")
+
+    return totals
+
+
+def compact_breakdown(edited: pd.DataFrame) -> None:
+    with st.expander("Nutrition breakdown"):
+        st.dataframe(
+            edited[["food_name", "weight_g", "kcal", "protein", "carbs", "fat", "fiber"]],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+
 def meal_template_card(title: str, items: List[str], kcal: str, protein: str) -> None:
     body = "<br>".join(items)
     st.markdown(
@@ -658,92 +918,159 @@ def suggested_foods(food_db: pd.DataFrame, foods: List[str]) -> List[str]:
 
 
 def meal_planner_page(food_db: pd.DataFrame) -> None:
-    hero("Meal Planner", "Generate a meal plan independent of date. Use it before cooking tomorrow's lunch or dinner.")
+    hero("Meal Planner", "Professional meal workflow: select ingredients, generate weights, review nutrition.")
 
     meal_type = st.radio("Meal type", list(MEAL_TARGETS.keys()), horizontal=True, index=1, key="planner_meal_type")
 
-    st.subheader("Meal Templates")
-    if meal_type == "Breakfast":
-        meal_template_card(
-            "Fixed Breakfast",
-            ["Low Fat Milk 300ml", "Oats 45g", "Banana 120g", "Blueberries / Strawberries 80g", "Whey Protein 30g"],
-            "≈ 520 kcal",
-            "≈ 35g protein",
-        )
-    elif meal_type == "Lunch":
-        meal_template_card(
-            "Default Lunch",
-            ["Cooked Mixed Brown Rice 150g", "Beef Tripe / Beef Omasum 180-220g", "Lettuce 100g", "Celery 120g", "Enoki Mushrooms 100g"],
-            "≈ 550-650 kcal",
-            "≈ 40-50g protein",
-        )
-    elif meal_type == "Dinner":
-        meal_template_card(
-            "Default Dinner",
-            ["Mackerel / Mussels / Beef Omasum 180-220g", "Lettuce 100g", "Celery 100g", "Enoki Mushrooms 100g", "Rice 0-100g depending on hunger"],
-            "≈ 450-650 kcal",
-            "≈ 35-50g protein",
-        )
-    else:
-        meal_template_card(
-            "Snack",
-            ["Apple 150-200g", "or Banana 100-120g", "Avoid stacking too much fruit if stool is watery."],
-            "≈ 80-180 kcal",
-            "Low protein",
-        )
+    left, middle, right = st.columns([1.05, 1.35, 0.9], gap="large")
 
-    st.subheader("Build Your Meal")
-    default_selected = suggested_foods(food_db, MEAL_DEFAULT_FOODS[meal_type])
-    edited = food_picker_with_weights(food_db, meal_type, default_selected, key_prefix="planner")
+    with left:
+        st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+        panel_header("Step 1", "Food Selection", "Choose foods from grouped ingredient lists.")
+        default_selected = suggested_foods(food_db, MEAL_DEFAULT_FOODS[meal_type])
+        selected_foods = ingredient_selector(food_db, meal_type, default_selected, key_prefix="planner")
 
-    if edited.empty:
-        st.info("Select at least one food.")
-        return
+        st.markdown("<div class='small-divider'></div>", unsafe_allow_html=True)
+        if st.button("Generate Meal Plan", type="primary", use_container_width=True):
+            generated = generate_meal(food_db, selected_foods, meal_type)
+            st.session_state["active_meal_type"] = meal_type
+            st.session_state["active_meal_plan"] = generated
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    totals = show_meal_summary(edited, meal_type)
-    st.caption(
-        f"Planner total: {totals['kcal']:.0f} kcal · "
-        f"{totals['protein']:.1f}g protein · {totals['fiber']:.1f}g fiber"
-    )
+    generated = st.session_state.get("active_meal_plan", pd.DataFrame())
+    generated_meal_type = st.session_state.get("active_meal_type", meal_type)
+
+    edited = pd.DataFrame()
+
+    with middle:
+        st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+        panel_header("Step 2", "Suggested Weights", "Use sliders for quick changes, or type exact grams from your kitchen scale.")
+
+        if generated.empty:
+            st.info("Select ingredients on the left, then click Generate Meal Plan.")
+        else:
+            st.caption(f"Active plan: {generated_meal_type}")
+            edited = plan_weight_editor(food_db, generated, key_prefix="planner_edit")
+            compact_breakdown(edited)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with right:
+        st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+        panel_header("Step 3", "Nutrition Results", "Quick decision cards for fat-loss planning.")
+
+        if edited.empty:
+            result_card("Calories", "—", "Generate a plan first")
+            result_card("Protein", "—", "Generate a plan first")
+            result_card("Fiber", "—", "Generate a plan first")
+        else:
+            totals = nutrition_results_panel(edited, generated_meal_type, context="Planned meal")
+            st.caption(
+                f"Planner total: {totals['kcal']:.0f} kcal · "
+                f"{totals['protein']:.1f}g protein · {totals['fiber']:.1f}g fiber"
+            )
+            if st.button("Use this plan in Diet Log", use_container_width=True):
+                save_latest_plan(generated_meal_type, edited)
+                st.success("Saved as the latest meal plan. Open Diet Log and choose the date to log it.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def diet_log_page(food_db: pd.DataFrame) -> None:
-    hero("Diet Log", "Date-indexed actual food record. Use this when you cook or weigh food for a specific date.")
+    hero("Diet Log", "Date-indexed cooking and food record. Use your latest plan as the default, then adjust actual weights.")
 
-    log_date = st.date_input("Log date", value=date.today() + timedelta(days=1), help="For example, if you cook tomorrow's lunch today, choose tomorrow's date.")
-    meal_type = st.radio("Meal", list(MEAL_TARGETS.keys()), horizontal=True, index=1, key="diet_log_meal_type")
+    latest = load_latest_plan()
+    has_latest = not latest.empty
 
-    default_selected = suggested_foods(food_db, MEAL_DEFAULT_FOODS[meal_type])
-    edited = food_picker_with_weights(food_db, meal_type, default_selected, key_prefix=f"diet_log_{log_date}")
+    latest_meal_type = None
+    if has_latest and "meal" in latest.columns:
+        latest_meal_type = str(latest["meal"].iloc[0])
 
-    if edited.empty:
-        st.info("Select at least one food.")
-        return
+    default_meal_index = list(MEAL_TARGETS.keys()).index(latest_meal_type) if latest_meal_type in MEAL_TARGETS else 1
 
-    totals = show_meal_summary(edited, meal_type)
-    st.caption(
-        f"Selected date: {log_date} · {meal_type} · "
-        f"{totals['kcal']:.0f} kcal · {totals['protein']:.1f}g protein"
-    )
+    left, middle, right = st.columns([1.05, 1.35, 0.9], gap="large")
 
-    if st.button("Save to Diet Log", type="primary"):
-        rows = []
-        for _, row in edited.iterrows():
-            rows.append(
-                {
-                    "date": str(log_date),
-                    "meal": meal_type,
-                    "food_name": row["food_name"],
-                    "weight_g": row["weight_g"],
-                    "kcal": row["kcal"],
-                    "protein": row["protein"],
-                    "carbs": row["carbs"],
-                    "fat": row["fat"],
-                    "fiber": row["fiber"],
-                }
+    with left:
+        st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+        panel_header("Step 1", "Date & Meal", "Choose the date you want to record, not necessarily today.")
+
+        log_date = st.date_input(
+            "Log date",
+            value=date.today() + timedelta(days=1),
+            help="For example, if you cook tomorrow's lunch today, choose tomorrow's date.",
+        )
+        meal_type = st.radio("Meal", list(MEAL_TARGETS.keys()), horizontal=False, index=default_meal_index, key="diet_log_meal_type")
+
+        use_latest = False
+        latest_for_meal = pd.DataFrame()
+        if has_latest and latest_meal_type == meal_type:
+            use_latest = st.checkbox("Use latest generated meal plan", value=True)
+            latest_for_meal = latest.copy()
+        elif has_latest:
+            st.caption(f"Latest saved plan is for {latest_meal_type}. Select that meal type to use it.")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    if use_latest and not latest_for_meal.empty:
+        default_selected = latest_for_meal["food_name"].tolist()
+        weight_defaults = dict(zip(latest_for_meal["food_name"], latest_for_meal["weight_g"]))
+    else:
+        default_selected = suggested_foods(food_db, MEAL_DEFAULT_FOODS[meal_type])
+        weight_defaults = {}
+
+    edited = pd.DataFrame()
+
+    with middle:
+        st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+        panel_header("Step 2", "Actual Weights", "Keep the planned weights or adjust them based on your kitchen scale.")
+
+        edited = food_picker_with_weights(
+            food_db=food_db,
+            meal_type=meal_type,
+            default_selected=default_selected,
+            weight_defaults=weight_defaults,
+            key_prefix=f"diet_log_{safe_key(str(log_date))}",
+        )
+
+        if edited.empty:
+            st.info("Select at least one food.")
+        else:
+            compact_breakdown(edited)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with right:
+        st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+        panel_header("Step 3", "Log Results", "Review nutrition, then save to the selected date.")
+
+        if edited.empty:
+            result_card("Calories", "—", "Select foods first")
+            result_card("Protein", "—", "Select foods first")
+            result_card("Fiber", "—", "Select foods first")
+        else:
+            totals = nutrition_results_panel(edited, meal_type, context="Actual meal")
+            st.caption(
+                f"Selected date: {log_date} · {meal_type} · "
+                f"{totals['kcal']:.0f} kcal · {totals['protein']:.1f}g protein"
             )
-        append_csv(FOOD_LOG_PATH, rows)
-        st.success(f"Saved {meal_type} for {log_date}.")
+
+            if st.button("Save to Diet Log", type="primary", use_container_width=True):
+                rows = []
+                for _, row in edited.iterrows():
+                    rows.append(
+                        {
+                            "date": str(log_date),
+                            "meal": meal_type,
+                            "food_name": row["food_name"],
+                            "weight_g": row["weight_g"],
+                            "kcal": row["kcal"],
+                            "protein": row["protein"],
+                            "carbs": row["carbs"],
+                            "fat": row["fat"],
+                            "fiber": row["fiber"],
+                        }
+                    )
+                append_csv(FOOD_LOG_PATH, rows)
+                st.success(f"Saved {meal_type} for {log_date}.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def training_planner_page() -> None:
@@ -898,6 +1225,7 @@ def settings_page(food_db: pd.DataFrame) -> None:
     st.dataframe(load_csv(FOOD_LOG_PATH), use_container_width=True, hide_index=True)
     st.dataframe(load_csv(WORKOUT_LOG_PATH), use_container_width=True, hide_index=True)
     st.dataframe(load_csv(BODY_LOG_PATH), use_container_width=True, hide_index=True)
+    st.dataframe(load_latest_plan(), use_container_width=True, hide_index=True)
 
 
 def main() -> None:
