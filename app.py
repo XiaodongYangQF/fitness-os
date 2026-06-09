@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from pathlib import Path
+import re
 from typing import Dict, List, Tuple
 
 import pandas as pd
@@ -731,7 +732,7 @@ def ensure_files() -> None:
     for path, cols in [
         (FOOD_LOG_PATH, ["date", "meal", "food_name", "weight_g", "kcal", "protein", "carbs", "fat", "fiber"]),
         (WORKOUT_LOG_PATH, ["date", "type", "duration_min", "distance_km", "avg_hr", "active_kcal", "knee_pain", "ankle_pain", "rpe", "notes"]),
-        (WORKOUT_DETAIL_LOG_PATH, ["date", "session_name", "exercise_name", "section", "planned_sets", "planned_reps", "planned_weight", "actual_sets", "actual_reps", "actual_weight", "rpe", "completed", "notes"]),
+        (WORKOUT_DETAIL_LOG_PATH, ["date", "session_name", "exercise_name", "section", "set_index", "planned_sets", "planned_reps", "planned_weight", "actual_sets", "actual_reps", "actual_weight", "rpe", "completed", "notes"]),
         (LATEST_TRAINING_PLAN_PATH, ["session_name", "section", "exercise_name", "sets", "reps", "target_weight", "rest_sec", "rpe_range", "duration_min", "note"]),
         (BODY_LOG_PATH, ["date", "morning_weight", "evening_weight", "waist_cm", "stool_status", "notes"]),
     ]:
@@ -2334,63 +2335,263 @@ def weekly_template_df() -> pd.DataFrame:
     )
 
 
+
+def parse_default_reps(reps_text: str) -> int:
+    nums = re.findall(r"\d+", str(reps_text))
+    if not nums:
+        return 10
+    nums = [int(x) for x in nums]
+    if len(nums) >= 2:
+        return int(round(sum(nums[:2]) / 2))
+    return nums[0]
+
+
+def dual_value_input(
+    label: str,
+    min_value: float,
+    max_value: float,
+    default_value: float,
+    step: float,
+    key_prefix: str,
+    unit: str = "",
+) -> float:
+    value_key = f"{key_prefix}_value"
+    slider_key = f"{key_prefix}_slider"
+    number_key = f"{key_prefix}_number"
+
+    default_value = float(default_value)
+    if value_key not in st.session_state:
+        st.session_state[value_key] = default_value
+    if slider_key not in st.session_state:
+        st.session_state[slider_key] = default_value
+    if number_key not in st.session_state:
+        st.session_state[number_key] = default_value
+
+    def sync_from_slider() -> None:
+        value = float(st.session_state[slider_key])
+        st.session_state[value_key] = value
+        st.session_state[number_key] = value
+
+    def sync_from_number() -> None:
+        value = float(st.session_state[number_key])
+        value = max(float(min_value), min(value, float(max_value)))
+        st.session_state[value_key] = value
+        st.session_state[slider_key] = value
+        st.session_state[number_key] = value
+
+    c1, c2 = st.columns([2.2, 0.9])
+    with c1:
+        st.slider(
+            label,
+            min_value=float(min_value),
+            max_value=float(max_value),
+            value=float(st.session_state[value_key]),
+            step=float(step),
+            key=slider_key,
+            on_change=sync_from_slider,
+        )
+    with c2:
+        st.number_input(
+            unit or label,
+            min_value=float(min_value),
+            max_value=float(max_value),
+            value=float(st.session_state[value_key]),
+            step=float(step),
+            format="%.0f" if step >= 1 else "%.1f",
+            key=number_key,
+            on_change=sync_from_number,
+            label_visibility="collapsed",
+        )
+
+    return float(st.session_state[value_key])
+
+
+def set_row_card(exercise_name: str, set_no: int, planned_weight: float, planned_reps: int, key_prefix: str) -> Dict:
+    st.markdown(
+        f"""
+        <div class="mobile-card" style="padding:12px 14px; margin:8px 0;">
+            <strong>{exercise_name} · Set {set_no}</strong>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    done = st.checkbox(
+        f"Completed Set {set_no}",
+        value=False,
+        key=f"{key_prefix}_completed_{set_no}",
+        help="Tick this after you finish the set.",
+    )
+
+    weight_max = max(100.0, float(planned_weight) + 60.0)
+    weight = dual_value_input(
+        "Weight",
+        min_value=0.0,
+        max_value=weight_max,
+        default_value=float(planned_weight),
+        step=2.5,
+        key_prefix=f"{key_prefix}_weight_{set_no}",
+        unit="kg",
+    )
+
+    reps = dual_value_input(
+        "Reps",
+        min_value=0.0,
+        max_value=max(30.0, float(planned_reps) + 10.0),
+        default_value=float(planned_reps),
+        step=1.0,
+        key_prefix=f"{key_prefix}_reps_{set_no}",
+        unit="reps",
+    )
+
+    rpe = st.slider(
+        "RPE",
+        min_value=1,
+        max_value=10,
+        value=7,
+        key=f"{key_prefix}_rpe_{set_no}",
+        help="Rate of perceived exertion. 6-8 is usually enough for your current phase.",
+    )
+
+    notes = st.text_input(
+        "Set notes",
+        value="",
+        key=f"{key_prefix}_notes_{set_no}",
+        placeholder="Optional: form, difficulty, pain, etc.",
+    )
+
+    return {
+        "set_index": set_no,
+        "actual_sets": 1,
+        "actual_reps": reps,
+        "actual_weight": weight,
+        "rpe": rpe,
+        "completed": done,
+        "notes": notes,
+    }
+
+
+def cardio_row_card(exercise_name: str, planned_duration: float, key_prefix: str) -> Dict:
+    done = st.checkbox(
+        f"Completed {exercise_name}",
+        value=False,
+        key=f"{key_prefix}_completed_cardio",
+        help="Tick this when the cardio block is completed.",
+    )
+
+    duration = dual_value_input(
+        "Duration",
+        min_value=0.0,
+        max_value=90.0,
+        default_value=float(planned_duration),
+        step=1.0,
+        key_prefix=f"{key_prefix}_duration",
+        unit="min",
+    )
+
+    avg_hr = dual_value_input(
+        "Average HR",
+        min_value=80.0,
+        max_value=190.0,
+        default_value=130.0,
+        step=1.0,
+        key_prefix=f"{key_prefix}_hr",
+        unit="bpm",
+    )
+
+    rpe = st.slider("RPE", 1, 10, 5, key=f"{key_prefix}_rpe_cardio")
+    notes = st.text_input("Notes", value="", key=f"{key_prefix}_notes_cardio")
+
+    return {
+        "set_index": 1,
+        "actual_sets": 0,
+        "actual_reps": duration,
+        "actual_weight": avg_hr,
+        "rpe": rpe,
+        "completed": done,
+        "notes": notes,
+    }
+
+
 def exercise_input_cards(plan_df: pd.DataFrame, log_date: date) -> pd.DataFrame:
     rows = []
     if plan_df.empty:
         return pd.DataFrame()
 
     for i, row in plan_df.iterrows():
-        with st.expander(f"{row['section']} · {row['exercise_name']}", expanded=i < 3):
-            if int(row.get("sets", 0) or 0) == 0:
-                c1, c2, c3 = st.columns(3)
-                duration = c1.number_input("Duration (min)", min_value=0.0, max_value=120.0, value=float(row.get("duration_min", 20) or 20), step=1.0, key=f"log_duration_{i}")
-                avg_hr = c2.number_input("Avg HR", min_value=0, max_value=220, value=130, step=1, key=f"log_hr_{i}")
-                rpe = c3.slider("RPE", 1, 10, 5, key=f"log_rpe_cardio_{i}")
-                notes = st.text_input("Notes", value="", key=f"log_notes_cardio_{i}")
-                completed = st.checkbox("Completed", value=True, key=f"log_completed_cardio_{i}")
+        exercise_name = str(row["exercise_name"])
+        section = str(row["section"])
+        planned_sets = int(float(row.get("sets", 0) or 0))
+        planned_reps_text = str(row.get("reps", "10"))
+        planned_reps_value = parse_default_reps(planned_reps_text)
+        planned_weight = float(row.get("target_weight", 0) or 0)
+
+        with st.expander(f"{section} · {exercise_name}", expanded=i < 2):
+            st.caption(str(row.get("note", "")))
+
+            if planned_sets <= 0:
+                planned_duration = float(row.get("duration_min", 20) or 20)
+                actual = cardio_row_card(
+                    exercise_name=exercise_name,
+                    planned_duration=planned_duration,
+                    key_prefix=f"log_{safe_key(exercise_name)}_{i}",
+                )
+
                 rows.append(
                     {
                         "date": str(log_date),
                         "session_name": row["session_name"],
-                        "exercise_name": row["exercise_name"],
-                        "section": row["section"],
+                        "exercise_name": exercise_name,
+                        "section": section,
+                        "set_index": actual["set_index"],
                         "planned_sets": 0,
-                        "planned_reps": row.get("reps", ""),
+                        "planned_reps": planned_reps_text,
                         "planned_weight": 0,
-                        "actual_sets": 0,
-                        "actual_reps": duration,
-                        "actual_weight": avg_hr,
-                        "rpe": rpe,
-                        "completed": completed,
-                        "notes": notes,
+                        "actual_sets": actual["actual_sets"],
+                        "actual_reps": actual["actual_reps"],
+                        "actual_weight": actual["actual_weight"],
+                        "rpe": actual["rpe"],
+                        "completed": actual["completed"],
+                        "notes": actual["notes"],
                     }
                 )
+
             else:
-                c1, c2, c3, c4 = st.columns(4)
-                actual_sets = c1.number_input("Sets", min_value=0, max_value=10, value=int(row.get("sets", 3) or 3), step=1, key=f"log_sets_{i}")
-                actual_reps = c2.number_input("Reps", min_value=0, max_value=50, value=10, step=1, key=f"log_reps_{i}")
-                actual_weight = c3.number_input("Weight", min_value=0.0, max_value=300.0, value=float(row.get("target_weight", 0) or 0), step=2.5, key=f"log_weight_{i}")
-                rpe = c4.slider("RPE", 1, 10, 7, key=f"log_rpe_{i}")
-                completed = st.checkbox("Completed", value=True, key=f"log_completed_{i}")
-                notes = st.text_input("Notes", value="", key=f"log_notes_{i}")
-                rows.append(
-                    {
-                        "date": str(log_date),
-                        "session_name": row["session_name"],
-                        "exercise_name": row["exercise_name"],
-                        "section": row["section"],
-                        "planned_sets": row.get("sets", 0),
-                        "planned_reps": row.get("reps", ""),
-                        "planned_weight": row.get("target_weight", 0),
-                        "actual_sets": actual_sets,
-                        "actual_reps": actual_reps,
-                        "actual_weight": actual_weight,
-                        "rpe": rpe,
-                        "completed": completed,
-                        "notes": notes,
-                    }
+                st.caption(
+                    f"Planned: {planned_sets} sets × {planned_reps_text} reps · "
+                    f"{planned_weight:g} kg · RPE {row.get('rpe_range', '6-8')}"
                 )
+
+                for set_no in range(1, planned_sets + 1):
+                    actual = set_row_card(
+                        exercise_name=exercise_name,
+                        set_no=set_no,
+                        planned_weight=planned_weight,
+                        planned_reps=planned_reps_value,
+                        key_prefix=f"log_{safe_key(exercise_name)}_{i}",
+                    )
+
+                    rows.append(
+                        {
+                            "date": str(log_date),
+                            "session_name": row["session_name"],
+                            "exercise_name": exercise_name,
+                            "section": section,
+                            "set_index": actual["set_index"],
+                            "planned_sets": planned_sets,
+                            "planned_reps": planned_reps_text,
+                            "planned_weight": planned_weight,
+                            "actual_sets": actual["actual_sets"],
+                            "actual_reps": actual["actual_reps"],
+                            "actual_weight": actual["actual_weight"],
+                            "rpe": actual["rpe"],
+                            "completed": actual["completed"],
+                            "notes": actual["notes"],
+                        }
+                    )
+
     return pd.DataFrame(rows)
+
 
 def training_planner_page() -> None:
     hero("Training Planner", "Programme baseline + daily readiness adjustment, based on your previous 12-week training record.")
@@ -2542,7 +2743,7 @@ def workout_log_page() -> None:
 
     with middle:
         st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
-        panel_header("Step 2", "Exercise Log", "Record actual sets, reps, weight and RPE.")
+        panel_header("Step 2", "Exercise Log", "Each planned set becomes one row with a checkbox, weight slider and reps slider.")
         if use_latest and not latest.empty:
             detail_df = exercise_input_cards(latest, log_date)
         else:
@@ -2582,8 +2783,11 @@ def workout_log_page() -> None:
             if not detail_df.empty:
                 detail_rows = detail_df.to_dict("records")
                 append_csv(WORKOUT_DETAIL_LOG_PATH, detail_rows)
-
-            animated_success(f"Workout saved for {log_date}.")
+                completed_sets = int(detail_df["completed"].sum()) if "completed" in detail_df.columns else 0
+                total_rows = len(detail_df)
+                animated_success(f"Workout saved for {log_date}. Completed {completed_sets}/{total_rows} logged rows.")
+            else:
+                animated_success(f"Workout saved for {log_date}.")
         st.markdown("</div>", unsafe_allow_html=True)
 
 
