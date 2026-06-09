@@ -516,6 +516,96 @@ def suggested_foods(food_db: pd.DataFrame, foods: List[str]) -> List[str]:
     return [f for f in foods if f in available]
 
 
+
+def safe_key(text: str) -> str:
+    return (
+        str(text)
+        .replace(" ", "_")
+        .replace("/", "_")
+        .replace("-", "_")
+        .replace("·", "_")
+        .replace("(", "")
+        .replace(")", "")
+        .lower()
+    )
+
+
+def calculate_meal_from_weights(food_db: pd.DataFrame, weights: Dict[str, float]) -> pd.DataFrame:
+    rows = []
+    for food_name, weight in weights.items():
+        food_match = food_db[food_db["food_name"] == food_name]
+        if food_match.empty or float(weight) <= 0:
+            continue
+        rows.append(calc_row(food_match.iloc[0], float(weight)))
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows).sort_values(["category", "food_name"])
+
+
+def weight_input_meal_editor(
+    food_db: pd.DataFrame,
+    selected_foods: List[str],
+    meal_type: str,
+    key_prefix: str,
+) -> pd.DataFrame:
+    """Mobile-friendly replacement for table editing.
+
+    The app still suggests sensible weights, but the user edits weights through
+    number inputs, similar to entering spot price, forward price and maturity in
+    the option-pricing tool.
+    """
+    suggested = generate_meal(food_db, selected_foods, meal_type)
+    if suggested.empty:
+        return pd.DataFrame()
+
+    st.subheader("Enter weights")
+    st.caption("Type the actual weight from your kitchen scale. Suggested weights are pre-filled.")
+
+    weights: Dict[str, float] = {}
+    for _, row in suggested.iterrows():
+        food_name = row["food_name"]
+        category = str(row["category"]).title()
+        default_weight = float(row["weight_g"])
+
+        label = f"{food_name} · {category}"
+        help_text = "Type the actual weight in grams/ml."
+
+        weights[food_name] = st.number_input(
+            label,
+            min_value=0.0,
+            max_value=1000.0,
+            value=default_weight,
+            step=5.0,
+            format="%.0f",
+            help=help_text,
+            key=f"{key_prefix}_{safe_key(meal_type)}_{safe_key(food_name)}",
+        )
+
+    return calculate_meal_from_weights(food_db, weights)
+
+
+def show_meal_summary(edited: pd.DataFrame, meal_type: str) -> Dict[str, float]:
+    totals = meal_totals(edited)
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Calories", f"{totals['kcal']:.0f} kcal")
+    c2.metric("Protein", f"{totals['protein']:.1f} g")
+    c3.metric("Fiber", f"{totals['fiber']:.1f} g")
+
+    if totals["fiber"] > MEAL_TARGETS[meal_type]["fiber"] * 1.4:
+        st.warning("Fiber is high. If stool is watery, reduce raw vegetables, apples or chia seeds for a few days.")
+    if totals["protein"] < MEAL_TARGETS[meal_type]["protein"] * 0.8:
+        st.warning("Protein is low. Add beef tripe, beef omasum, mackerel, mussels, prawns or whey.")
+
+    with st.expander("Nutrition breakdown"):
+        st.dataframe(
+            edited[["food_name", "weight_g", "kcal", "protein", "carbs", "fat", "fiber"]],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    return totals
+
+
 def today_page(food_db: pd.DataFrame) -> None:
     hero("Fitness OS", "Today-first food, training and recovery planning.")
 
@@ -566,30 +656,42 @@ def today_page(food_db: pd.DataFrame) -> None:
         "≈ 35-50g protein",
     )
 
-    st.subheader("Generate a Quick Meal")
+    st.subheader("Quick Meal Input")
+    st.caption("This version avoids editing weights in a table. Select foods, then type weights directly.")
+
     common = suggested_foods(food_db, ["Cooked Mixed Brown Rice", "Beef Tripe", "Lettuce", "Celery", "Enoki Mushrooms"])
-    selected = st.multiselect("Choose ingredients", food_db["food_name"].tolist(), default=common)
-    meal_type = st.radio("Meal type", ["Breakfast", "Lunch", "Dinner", "Snack"], horizontal=True, index=1)
+    meal_type = st.radio("Meal type", ["Breakfast", "Lunch", "Dinner", "Snack"], horizontal=True, index=1, key="today_quick_meal_type")
+    selected = st.multiselect("Choose ingredients", food_db["food_name"].tolist(), default=common, key="today_quick_foods")
 
-    if st.button("Generate Meal Plan", type="primary"):
-        generated = generate_meal(food_db, selected, meal_type)
-        st.session_state["last_generated_meal"] = generated
-        st.session_state["last_generated_meal_type"] = meal_type
+    edited = weight_input_meal_editor(food_db, selected, meal_type, key_prefix="today_quick")
+    if not edited.empty:
+        show_meal_summary(edited, meal_type)
 
-    generated = st.session_state.get("last_generated_meal", pd.DataFrame())
-    if not generated.empty:
-        totals = meal_totals(generated)
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Meal kcal", f"{totals['kcal']:.0f}")
-        c2.metric("Protein", f"{totals['protein']:.1f}g")
-        c3.metric("Fiber", f"{totals['fiber']:.1f}g")
-        st.dataframe(generated[["food_name", "weight_g", "kcal", "protein", "fiber"]], use_container_width=True, hide_index=True)
+        if st.button("Save quick meal to Food Log", type="primary"):
+            rows = []
+            for _, row in edited.iterrows():
+                rows.append(
+                    {
+                        "date": str(date.today()),
+                        "meal": meal_type,
+                        "food_name": row["food_name"],
+                        "weight_g": row["weight_g"],
+                        "kcal": row["kcal"],
+                        "protein": row["protein"],
+                        "carbs": row["carbs"],
+                        "fat": row["fat"],
+                        "fiber": row["fiber"],
+                    }
+                )
+            append_csv(FOOD_LOG_PATH, rows)
+            st.success("Saved to Food Log.")
+
 
 
 def meal_page(food_db: pd.DataFrame) -> None:
-    hero("Meal Builder", "Choose ingredients first. Fitness OS suggests reasonable weights and nutrition.")
+    hero("Meal Builder", "Select ingredients and type weights directly, like the option-pricing input style.")
 
-    meal_type = st.radio("Meal", list(MEAL_TARGETS.keys()), horizontal=True, index=1)
+    meal_type = st.radio("Meal", list(MEAL_TARGETS.keys()), horizontal=True, index=1, key="meal_page_type")
 
     default_foods = {
         "Breakfast": ["Low Fat Milk", "Oats", "Banana", "Blueberries", "Whey Protein"],
@@ -602,35 +704,18 @@ def meal_page(food_db: pd.DataFrame) -> None:
         "Ingredients",
         options=food_db["food_name"].tolist(),
         default=suggested_foods(food_db, default_foods[meal_type]),
+        key="meal_page_selected_foods",
     )
 
-    generated = generate_meal(food_db, selected, meal_type)
-    if generated.empty:
+    edited = weight_input_meal_editor(food_db, selected, meal_type, key_prefix="meal_page")
+
+    if edited.empty:
         st.info("Select at least one ingredient.")
         return
 
-    totals = meal_totals(generated)
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Calories", f"{totals['kcal']:.0f} kcal")
-    c2.metric("Protein", f"{totals['protein']:.1f} g")
-    c3.metric("Fiber", f"{totals['fiber']:.1f} g")
-
-    if totals["fiber"] > MEAL_TARGETS[meal_type]["fiber"] * 1.4:
-        st.warning("Fiber is high. If stool is watery, reduce raw vegetables, apples or chia seeds for a few days.")
-    if totals["protein"] < MEAL_TARGETS[meal_type]["protein"] * 0.8:
-        st.warning("Protein is low. Add beef tripe, beef omasum, mackerel, mussels, prawns or whey.")
-
-    st.subheader("Suggested weights")
-    edited = st.data_editor(
-        generated[["food_name", "category", "weight_g", "kcal", "protein", "carbs", "fat", "fiber"]],
-        num_rows="fixed",
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    totals2 = meal_totals(edited)
+    totals2 = show_meal_summary(edited, meal_type)
     st.caption(
-        f"Actual totals after editing: {totals2['kcal']:.0f} kcal · "
+        f"Current total: {totals2['kcal']:.0f} kcal · "
         f"{totals2['protein']:.1f}g protein · {totals2['fiber']:.1f}g fiber"
     )
 
