@@ -15,6 +15,9 @@ FOOD_LOG_PATH = DATA_DIR / "food_log.csv"
 WORKOUT_LOG_PATH = DATA_DIR / "workout_log.csv"
 BODY_LOG_PATH = DATA_DIR / "body_log.csv"
 LATEST_PLAN_PATH = DATA_DIR / "latest_meal_plan.csv"
+EXERCISE_LIBRARY_PATH = DATA_DIR / "exercise_library.csv"
+LATEST_TRAINING_PLAN_PATH = DATA_DIR / "latest_training_plan.csv"
+WORKOUT_DETAIL_LOG_PATH = DATA_DIR / "workout_detail_log.csv"
 
 DAILY_TARGETS = {
     "kcal_min": 1800,
@@ -81,6 +84,609 @@ BREAKFAST_STAPLES = {
     "Whey Protein",
 }
 
+DEFAULT_EXERCISE_LIBRARY = [
+    {
+        "exercise_name": "Lat Pulldown",
+        "aliases": "Pull Downs",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Vertical Pull",
+        "primary_muscle": "Back / Lats",
+        "equipment": "Cable Pulldown Machine",
+        "difficulty": "Beginner",
+        "joint_stress": "Low",
+        "default_sets": 3,
+        "default_reps": "8-12",
+        "default_weight": 35,
+        "rest_sec": 75,
+        "rpe_range": "6-8",
+        "cues": "Keep chest tall. Pull elbows down. Do not shrug.",
+        "avoid_if": "Shoulder pain",
+        "recorded_sets": 12,
+        "recorded_weight_min": 12,
+        "recorded_weight_max": 44,
+        "notes": "From uploaded 12-week training record.",
+    },
+    {
+        "exercise_name": "Kettlebell Squat",
+        "aliases": "KB Squat",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Squat",
+        "primary_muscle": "Quads / Glutes",
+        "equipment": "Kettlebell",
+        "difficulty": "Beginner",
+        "joint_stress": "Moderate knee",
+        "default_sets": 3,
+        "default_reps": "10-12",
+        "default_weight": 14,
+        "rest_sec": 75,
+        "rpe_range": "6-8",
+        "cues": "Brace core. Sit between hips. Keep knees tracking over toes.",
+        "avoid_if": "Knee pain above 3/10",
+        "recorded_sets": 16,
+        "recorded_weight_min": 8,
+        "recorded_weight_max": 20,
+        "notes": "Frequent exercise in uploaded record.",
+    },
+    {
+        "exercise_name": "Incline Dumbbell Bench Press",
+        "aliases": "Incline DB Bench Press",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Horizontal Push",
+        "primary_muscle": "Chest / Front Delts / Triceps",
+        "equipment": "Dumbbells + Incline Bench",
+        "difficulty": "Beginner-Intermediate",
+        "joint_stress": "Low-moderate shoulder",
+        "default_sets": 3,
+        "default_reps": "8-12",
+        "default_weight": 10,
+        "rest_sec": 75,
+        "rpe_range": "6-8",
+        "cues": "Control the lowering phase. Keep shoulder blades stable.",
+        "avoid_if": "Shoulder pain",
+        "recorded_sets": 13,
+        "recorded_weight_min": 5,
+        "recorded_weight_max": 12.5,
+        "notes": "Dumbbell weight per hand if recorded that way.",
+    },
+    {
+        "exercise_name": "Dumbbell Incline Row",
+        "aliases": "DB Incline Row",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Horizontal Pull",
+        "primary_muscle": "Back / Rear Delts",
+        "equipment": "Dumbbells + Incline Bench",
+        "difficulty": "Beginner",
+        "joint_stress": "Low",
+        "default_sets": 3,
+        "default_reps": "10-12",
+        "default_weight": 10,
+        "rest_sec": 75,
+        "rpe_range": "6-8",
+        "cues": "Pull elbows back. Pause briefly. Avoid swinging.",
+        "avoid_if": "Lower-back discomfort if setup is poor",
+        "recorded_sets": 12,
+        "recorded_weight_min": 6,
+        "recorded_weight_max": 12.5,
+        "notes": "Good joint-friendly pull exercise.",
+    },
+    {
+        "exercise_name": "Prone Machine Hamstring Curl",
+        "aliases": "Prone Machine Hamstring Curl",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Knee Flexion",
+        "primary_muscle": "Hamstrings",
+        "equipment": "Hamstring Curl Machine",
+        "difficulty": "Beginner",
+        "joint_stress": "Low knee",
+        "default_sets": 3,
+        "default_reps": "10-15",
+        "default_weight": 25,
+        "rest_sec": 60,
+        "rpe_range": "6-8",
+        "cues": "Control both directions. Do not lift hips from the pad.",
+        "avoid_if": "Hamstring strain",
+        "recorded_sets": 14,
+        "recorded_weight_min": 15,
+        "recorded_weight_max": 35,
+        "notes": "Very suitable for strength rebuild.",
+    },
+    {
+        "exercise_name": "Leg Extension",
+        "aliases": "Leg Extension",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Knee Extension",
+        "primary_muscle": "Quads",
+        "equipment": "Leg Extension Machine",
+        "difficulty": "Beginner",
+        "joint_stress": "Moderate knee",
+        "default_sets": 2,
+        "default_reps": "10-15",
+        "default_weight": 20,
+        "rest_sec": 60,
+        "rpe_range": "6-7",
+        "cues": "Use controlled reps. Avoid locking knees hard.",
+        "avoid_if": "Knee pain above 3/10",
+        "recorded_sets": 5,
+        "recorded_weight_min": 10,
+        "recorded_weight_max": 30,
+        "notes": "Use carefully if knee feels sensitive.",
+    },
+    {
+        "exercise_name": "T-Bar Row",
+        "aliases": "T-Bar Row",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Horizontal Pull",
+        "primary_muscle": "Back / Lats / Mid Traps",
+        "equipment": "T-Bar Row Machine",
+        "difficulty": "Beginner-Intermediate",
+        "joint_stress": "Low-moderate lower back",
+        "default_sets": 3,
+        "default_reps": "8-12",
+        "default_weight": 12.5,
+        "rest_sec": 75,
+        "rpe_range": "6-8",
+        "cues": "Neutral spine. Pull toward lower chest. Control the eccentric.",
+        "avoid_if": "Lower-back pain",
+        "recorded_sets": 7,
+        "recorded_weight_min": 0,
+        "recorded_weight_max": 13.5,
+        "notes": "Machine setup may make 0kg meaningful as base load.",
+    },
+    {
+        "exercise_name": "Dumbbell Renegade Row",
+        "aliases": "DB Renegade Row",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Core + Horizontal Pull",
+        "primary_muscle": "Back / Core",
+        "equipment": "Dumbbells",
+        "difficulty": "Intermediate",
+        "joint_stress": "Moderate wrist/shoulder",
+        "default_sets": 3,
+        "default_reps": "8-10",
+        "default_weight": 6,
+        "rest_sec": 75,
+        "rpe_range": "6-8",
+        "cues": "Keep hips steady. Use light weights. Avoid twisting.",
+        "avoid_if": "Wrist or shoulder pain",
+        "recorded_sets": 12,
+        "recorded_weight_min": 5,
+        "recorded_weight_max": 6,
+        "notes": "Keep as optional because it is technically harder.",
+    },
+    {
+        "exercise_name": "Sit-Up",
+        "aliases": "Sit-Up",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Core",
+        "pattern": "Trunk Flexion",
+        "primary_muscle": "Abs",
+        "equipment": "Mat",
+        "difficulty": "Beginner",
+        "joint_stress": "Low-moderate spine",
+        "default_sets": 3,
+        "default_reps": "10-15",
+        "default_weight": 0,
+        "rest_sec": 45,
+        "rpe_range": "6-8",
+        "cues": "Move with control. Stop if lower back feels uncomfortable.",
+        "avoid_if": "Lower-back pain",
+        "recorded_sets": 9,
+        "recorded_weight_min": 0,
+        "recorded_weight_max": 5,
+        "notes": "Can be replaced by Dead Bug for a more back-friendly option.",
+    },
+    {
+        "exercise_name": "Barbell Bicep Curl",
+        "aliases": "Barbell Bicep Curl",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Arm Curl",
+        "primary_muscle": "Biceps",
+        "equipment": "Barbell / EZ Bar",
+        "difficulty": "Beginner",
+        "joint_stress": "Low elbow",
+        "default_sets": 2,
+        "default_reps": "10-12",
+        "default_weight": 15,
+        "rest_sec": 60,
+        "rpe_range": "6-8",
+        "cues": "Keep elbows stable. Avoid swinging.",
+        "avoid_if": "Elbow pain",
+        "recorded_sets": 9,
+        "recorded_weight_min": 10,
+        "recorded_weight_max": 25,
+        "notes": "Accessory exercise.",
+    },
+    {
+        "exercise_name": "Cable Triceps Extension",
+        "aliases": "Cable Tricep Extention",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Arm Extension",
+        "primary_muscle": "Triceps",
+        "equipment": "Cable Machine",
+        "difficulty": "Beginner",
+        "joint_stress": "Low elbow",
+        "default_sets": 2,
+        "default_reps": "10-12",
+        "default_weight": 15,
+        "rest_sec": 60,
+        "rpe_range": "6-8",
+        "cues": "Keep elbows tucked. Finish with control.",
+        "avoid_if": "Elbow pain",
+        "recorded_sets": 6,
+        "recorded_weight_min": 10,
+        "recorded_weight_max": 20,
+        "notes": "Corrected spelling from uploaded record.",
+    },
+    {
+        "exercise_name": "Assisted Dip",
+        "aliases": "Dip",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Vertical Push",
+        "primary_muscle": "Chest / Triceps",
+        "equipment": "Assisted Dip Machine / Dip Station",
+        "difficulty": "Intermediate",
+        "joint_stress": "Moderate shoulder",
+        "default_sets": 2,
+        "default_reps": "8-10",
+        "default_weight": 25,
+        "rest_sec": 75,
+        "rpe_range": "6-8",
+        "cues": "Do not go too deep. Keep shoulders comfortable.",
+        "avoid_if": "Shoulder pain",
+        "recorded_sets": 6,
+        "recorded_weight_min": 0,
+        "recorded_weight_max": 45,
+        "notes": "If this was assisted dip, higher number may mean more assistance.",
+    },
+    {
+        "exercise_name": "Leg Press",
+        "aliases": "Lep Press",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Squat",
+        "primary_muscle": "Quads / Glutes",
+        "equipment": "Leg Press Machine",
+        "difficulty": "Beginner",
+        "joint_stress": "Low-moderate knee",
+        "default_sets": 3,
+        "default_reps": "10-12",
+        "default_weight": 40,
+        "rest_sec": 90,
+        "rpe_range": "6-8",
+        "cues": "Control depth. Knees track over toes. Do not lock out aggressively.",
+        "avoid_if": "Knee pain above 3/10",
+        "recorded_sets": 7,
+        "recorded_weight_min": 0,
+        "recorded_weight_max": 40,
+        "notes": "Corrected typo from uploaded record.",
+    },
+    {
+        "exercise_name": "Incline Dumbbell Reverse Fly",
+        "aliases": "Incline DB Reverse Fly",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Rear Delt Isolation",
+        "primary_muscle": "Rear Delts / Upper Back",
+        "equipment": "Dumbbells + Incline Bench",
+        "difficulty": "Beginner",
+        "joint_stress": "Low shoulder",
+        "default_sets": 2,
+        "default_reps": "10-15",
+        "default_weight": 5,
+        "rest_sec": 60,
+        "rpe_range": "6-8",
+        "cues": "Use light weights. Lead with elbows. Do not shrug.",
+        "avoid_if": "Shoulder pain",
+        "recorded_sets": 8,
+        "recorded_weight_min": 4,
+        "recorded_weight_max": 5,
+        "notes": "Good posture/accessory movement.",
+    },
+    {
+        "exercise_name": "Hip Adductor Machine",
+        "aliases": "Inner Thigh",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Hip Adduction",
+        "primary_muscle": "Adductors",
+        "equipment": "Adductor Machine",
+        "difficulty": "Beginner",
+        "joint_stress": "Low hip/knee",
+        "default_sets": 2,
+        "default_reps": "10-15",
+        "default_weight": 20,
+        "rest_sec": 60,
+        "rpe_range": "6-7",
+        "cues": "Slow and controlled. Avoid bouncing.",
+        "avoid_if": "Groin discomfort",
+        "recorded_sets": 2,
+        "recorded_weight_min": 14,
+        "recorded_weight_max": 23,
+        "notes": "Accessory lower-body machine.",
+    },
+    {
+        "exercise_name": "Hip Abductor Machine",
+        "aliases": "Outer Thigh",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Hip Abduction",
+        "primary_muscle": "Glute Medius / Outer Hip",
+        "equipment": "Abductor Machine",
+        "difficulty": "Beginner",
+        "joint_stress": "Low hip/knee",
+        "default_sets": 2,
+        "default_reps": "10-15",
+        "default_weight": 20,
+        "rest_sec": 60,
+        "rpe_range": "6-7",
+        "cues": "Control the movement. Keep torso stable.",
+        "avoid_if": "Hip discomfort",
+        "recorded_sets": 0,
+        "recorded_weight_min": 0,
+        "recorded_weight_max": 0,
+        "notes": "Listed in uploaded Exercise sheet.",
+    },
+    {
+        "exercise_name": "Barbell Hip Thrust",
+        "aliases": "Barbell Hip Thrust",
+        "source": "User 12-week programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Hip Hinge / Glute Bridge",
+        "primary_muscle": "Glutes / Hamstrings",
+        "equipment": "Barbell + Bench",
+        "difficulty": "Beginner-Intermediate",
+        "joint_stress": "Low knee",
+        "default_sets": 3,
+        "default_reps": "10-12",
+        "default_weight": 20,
+        "rest_sec": 75,
+        "rpe_range": "6-8",
+        "cues": "Chin tucked. Drive through heels. Pause at top.",
+        "avoid_if": "Lower-back discomfort",
+        "recorded_sets": 2,
+        "recorded_weight_min": 5,
+        "recorded_weight_max": 5,
+        "notes": "Good option for glutes with lower knee stress.",
+    },
+    {
+        "exercise_name": "Dumbbell Shoulder Press",
+        "aliases": "DB Shoulder Press / Incline DB Bench Press (HG)",
+        "source": "User note + programme",
+        "selected": True,
+        "category": "Strength",
+        "pattern": "Vertical Push",
+        "primary_muscle": "Shoulders / Triceps",
+        "equipment": "Dumbbells",
+        "difficulty": "Beginner-Intermediate",
+        "joint_stress": "Moderate shoulder",
+        "default_sets": 3,
+        "default_reps": "8-10",
+        "default_weight": 8,
+        "rest_sec": 75,
+        "rpe_range": "6-8",
+        "cues": "Press slightly forward. Keep ribs down. Stop if shoulder pinches.",
+        "avoid_if": "Shoulder pain",
+        "recorded_sets": 12,
+        "recorded_weight_min": 4,
+        "recorded_weight_max": 12.5,
+        "notes": "Workbook note says incline DB bench press is the same as DB shoulder press; confirm later.",
+    },
+    {
+        "exercise_name": "Incline Walk",
+        "aliases": "Treadmill Incline Walk",
+        "source": "Recommended",
+        "selected": False,
+        "category": "Cardio",
+        "pattern": "Low-impact Cardio",
+        "primary_muscle": "Cardiorespiratory / Legs",
+        "equipment": "Treadmill",
+        "difficulty": "Beginner",
+        "joint_stress": "Low-moderate ankle/knee",
+        "default_sets": 0,
+        "default_reps": "35-45 min",
+        "default_weight": 0,
+        "rest_sec": 0,
+        "rpe_range": "Zone 2",
+        "cues": "Speed 5.5-6.2 km/h, incline 8-12%, HR 125-145.",
+        "avoid_if": "Sharp knee/ankle pain",
+        "recorded_sets": 0,
+        "recorded_weight_min": 0,
+        "recorded_weight_max": 0,
+        "notes": "Recommended for fat loss and joint-friendly conditioning.",
+    },
+    {
+        "exercise_name": "Elliptical Zone 2",
+        "aliases": "Elliptical",
+        "source": "Recommended",
+        "selected": False,
+        "category": "Cardio",
+        "pattern": "Low-impact Cardio",
+        "primary_muscle": "Cardiorespiratory / Legs",
+        "equipment": "Elliptical",
+        "difficulty": "Beginner",
+        "joint_stress": "Low",
+        "default_sets": 0,
+        "default_reps": "30-45 min",
+        "default_weight": 0,
+        "rest_sec": 0,
+        "rpe_range": "Zone 2",
+        "cues": "Keep HR 125-140. Smooth rhythm. Avoid chasing calories.",
+        "avoid_if": "Unusual joint pain",
+        "recorded_sets": 0,
+        "recorded_weight_min": 0,
+        "recorded_weight_max": 0,
+        "notes": "Recommended recovery cardio.",
+    },
+    {
+        "exercise_name": "Bike Zone 2",
+        "aliases": "Stationary Bike",
+        "source": "Recommended",
+        "selected": False,
+        "category": "Cardio",
+        "pattern": "Low-impact Cardio",
+        "primary_muscle": "Cardiorespiratory / Legs",
+        "equipment": "Bike",
+        "difficulty": "Beginner",
+        "joint_stress": "Low",
+        "default_sets": 0,
+        "default_reps": "30-45 min",
+        "default_weight": 0,
+        "rest_sec": 0,
+        "rpe_range": "Zone 2",
+        "cues": "Keep cadence smooth. HR 120-140.",
+        "avoid_if": "Knee discomfort from bike setup",
+        "recorded_sets": 0,
+        "recorded_weight_min": 0,
+        "recorded_weight_max": 0,
+        "notes": "Alternative low-impact cardio.",
+    },
+    {
+        "exercise_name": "Dead Bug",
+        "aliases": "Dead Bug",
+        "source": "Recommended",
+        "selected": False,
+        "category": "Core",
+        "pattern": "Anti-extension",
+        "primary_muscle": "Core",
+        "equipment": "Mat",
+        "difficulty": "Beginner",
+        "joint_stress": "Low",
+        "default_sets": 3,
+        "default_reps": "8-10 each side",
+        "default_weight": 0,
+        "rest_sec": 45,
+        "rpe_range": "6-7",
+        "cues": "Keep lower back gently pressed down. Move slowly.",
+        "avoid_if": "None; generally back-friendly",
+        "recorded_sets": 0,
+        "recorded_weight_min": 0,
+        "recorded_weight_max": 0,
+        "notes": "Recommended core replacement for sit-up when back is tired.",
+    },
+    {
+        "exercise_name": "Pallof Press",
+        "aliases": "Cable Pallof Press",
+        "source": "Recommended",
+        "selected": False,
+        "category": "Core",
+        "pattern": "Anti-rotation",
+        "primary_muscle": "Core / Obliques",
+        "equipment": "Cable Machine",
+        "difficulty": "Beginner",
+        "joint_stress": "Low",
+        "default_sets": 3,
+        "default_reps": "10 each side",
+        "default_weight": 10,
+        "rest_sec": 45,
+        "rpe_range": "6-7",
+        "cues": "Do not rotate. Brace core. Move slowly.",
+        "avoid_if": "Shoulder discomfort",
+        "recorded_sets": 0,
+        "recorded_weight_min": 0,
+        "recorded_weight_max": 0,
+        "notes": "Recommended joint-friendly core exercise.",
+    },
+    {
+        "exercise_name": "Face Pull",
+        "aliases": "Cable Face Pull",
+        "source": "Recommended",
+        "selected": False,
+        "category": "Strength",
+        "pattern": "Upper Back / Shoulder Health",
+        "primary_muscle": "Rear Delts / Rotator Cuff",
+        "equipment": "Cable Machine",
+        "difficulty": "Beginner",
+        "joint_stress": "Low shoulder",
+        "default_sets": 2,
+        "default_reps": "12-15",
+        "default_weight": 10,
+        "rest_sec": 45,
+        "rpe_range": "6-7",
+        "cues": "Pull toward face. Keep elbows high. Use light load.",
+        "avoid_if": "Shoulder pain",
+        "recorded_sets": 0,
+        "recorded_weight_min": 0,
+        "recorded_weight_max": 0,
+        "notes": "Recommended for posture and shoulder balance.",
+    },
+]
+
+SESSION_TEMPLATES = {
+    "Full Body A": [
+        ("Warm-up", "Incline Walk"),
+        ("Strength", "Leg Press"),
+        ("Strength", "Lat Pulldown"),
+        ("Strength", "Incline Dumbbell Bench Press"),
+        ("Strength", "Dumbbell Incline Row"),
+        ("Accessory", "Prone Machine Hamstring Curl"),
+        ("Core", "Dead Bug"),
+        ("Conditioning", "Elliptical Zone 2"),
+    ],
+    "Full Body B": [
+        ("Warm-up", "Incline Walk"),
+        ("Strength", "Kettlebell Squat"),
+        ("Strength", "T-Bar Row"),
+        ("Strength", "Dumbbell Shoulder Press"),
+        ("Accessory", "Leg Extension"),
+        ("Accessory", "Cable Triceps Extension"),
+        ("Accessory", "Barbell Bicep Curl"),
+        ("Accessory", "Incline Dumbbell Reverse Fly"),
+    ],
+    "Lower + Core": [
+        ("Warm-up", "Incline Walk"),
+        ("Strength", "Kettlebell Squat"),
+        ("Strength", "Leg Press"),
+        ("Accessory", "Prone Machine Hamstring Curl"),
+        ("Accessory", "Barbell Hip Thrust"),
+        ("Accessory", "Hip Adductor Machine"),
+        ("Core", "Dead Bug"),
+    ],
+    "Upper + Conditioning": [
+        ("Warm-up", "Elliptical Zone 2"),
+        ("Strength", "Lat Pulldown"),
+        ("Strength", "T-Bar Row"),
+        ("Strength", "Incline Dumbbell Bench Press"),
+        ("Strength", "Dumbbell Incline Row"),
+        ("Accessory", "Face Pull"),
+        ("Accessory", "Cable Triceps Extension"),
+        ("Accessory", "Barbell Bicep Curl"),
+    ],
+    "Recovery Cardio": [
+        ("Warm-up", "Incline Walk"),
+        ("Cardio", "Elliptical Zone 2"),
+        ("Cardio", "Bike Zone 2"),
+        ("Core", "Dead Bug"),
+    ],
+}
+
 
 def ensure_files() -> None:
     DATA_DIR.mkdir(exist_ok=True)
@@ -119,9 +725,14 @@ def ensure_files() -> None:
             ],
         ).to_csv(FOOD_DB_PATH, index=False)
 
+    if not EXERCISE_LIBRARY_PATH.exists():
+        pd.DataFrame(DEFAULT_EXERCISE_LIBRARY).to_csv(EXERCISE_LIBRARY_PATH, index=False)
+
     for path, cols in [
         (FOOD_LOG_PATH, ["date", "meal", "food_name", "weight_g", "kcal", "protein", "carbs", "fat", "fiber"]),
         (WORKOUT_LOG_PATH, ["date", "type", "duration_min", "distance_km", "avg_hr", "active_kcal", "knee_pain", "ankle_pain", "rpe", "notes"]),
+        (WORKOUT_DETAIL_LOG_PATH, ["date", "session_name", "exercise_name", "section", "planned_sets", "planned_reps", "planned_weight", "actual_sets", "actual_reps", "actual_weight", "rpe", "completed", "notes"]),
+        (LATEST_TRAINING_PLAN_PATH, ["session_name", "section", "exercise_name", "sets", "reps", "target_weight", "rest_sec", "rpe_range", "duration_min", "note"]),
         (BODY_LOG_PATH, ["date", "morning_weight", "evening_weight", "waist_cm", "stool_status", "notes"]),
     ]:
         if not path.exists():
@@ -1544,62 +2155,436 @@ def diet_log_page(food_db: pd.DataFrame) -> None:
         st.markdown("</div>", unsafe_allow_html=True)
 
 
-def training_planner_page() -> None:
-    hero("Training Planner", "Generate a training suggestion independent of date. Log the actual workout separately.")
 
-    with st.form("training_planner_form"):
-        y_type = st.selectbox(
-            "Yesterday's main workout",
-            ["None", "5 km Run", "Treadmill Run", "Incline Walk", "Elliptical", "Strength Training", "Table Tennis"],
+@st.cache_data
+def load_exercise_library() -> pd.DataFrame:
+    df = pd.read_csv(EXERCISE_LIBRARY_PATH)
+    if "selected" in df.columns:
+        df["selected"] = df["selected"].astype(str).str.lower().isin(["true", "1", "yes"])
+    return df
+
+
+def get_exercise_row(ex_df: pd.DataFrame, exercise_name: str) -> Dict:
+    match = ex_df[ex_df["exercise_name"] == exercise_name]
+    if match.empty:
+        return {
+            "exercise_name": exercise_name,
+            "category": "Strength",
+            "pattern": "General",
+            "primary_muscle": "General",
+            "equipment": "Gym",
+            "difficulty": "Beginner",
+            "joint_stress": "Moderate",
+            "default_sets": 3,
+            "default_reps": "10",
+            "default_weight": 0,
+            "rest_sec": 60,
+            "rpe_range": "6-8",
+            "cues": "",
+            "avoid_if": "",
+            "notes": "",
+        }
+    return match.iloc[0].to_dict()
+
+
+def training_status_badges(intensity: str, joint_stress: str, time_min: int) -> None:
+    badges = [
+        f"<span class='status-good'>{time_min} min</span>",
+        f"<span class='status-good'>{intensity}</span>",
+    ]
+    if "High" in str(joint_stress):
+        badges.append("<span class='status-warn'>High joint stress</span>")
+    elif "Moderate" in str(joint_stress):
+        badges.append("<span class='status-warn'>Moderate joint stress</span>")
+    else:
+        badges.append("<span class='status-good'>Joint-friendly</span>")
+
+    st.markdown("".join(badges), unsafe_allow_html=True)
+
+
+def choose_session_focus(goal: str, preferred_focus: str, knee: int, ankle: int, fatigue: int) -> Tuple[str, str]:
+    pain = max(knee, ankle)
+    if pain >= 4 or fatigue >= 8:
+        return "Recovery Cardio", "Modified because pain/fatigue is high."
+    if pain >= 2 and preferred_focus in ["Lower + Core", "Full Body B"]:
+        return "Upper + Conditioning", "Modified to reduce lower-body joint stress."
+    if goal == "Recovery":
+        return "Recovery Cardio", "Recovery goal selected."
+    if preferred_focus == "Auto":
+        if goal == "Strength Rebuild":
+            return "Full Body A", "Auto-selected for strength rebuild."
+        if goal == "Fat Loss + Conditioning":
+            return "Upper + Conditioning", "Auto-selected for conditioning while keeping strength work."
+        return "Full Body A", "Auto-selected balanced full-body session."
+    return preferred_focus, "Using selected focus."
+
+
+def build_training_session(
+    ex_df: pd.DataFrame,
+    goal: str,
+    preferred_focus: str,
+    available_min: int,
+    knee: int,
+    ankle: int,
+    fatigue: int,
+) -> Tuple[str, pd.DataFrame, str]:
+    focus, reason = choose_session_focus(goal, preferred_focus, knee, ankle, fatigue)
+    template = SESSION_TEMPLATES.get(focus, SESSION_TEMPLATES["Full Body A"])
+
+    rows = []
+    for section, exercise_name in template:
+        ex = get_exercise_row(ex_df, exercise_name)
+        category = ex.get("category", "Strength")
+
+        if category == "Cardio":
+            duration = 8 if section == "Warm-up" else 20
+            sets = 0
+            reps = str(ex.get("default_reps", "20 min"))
+            target_weight = 0
+        else:
+            duration = 0
+            sets = int(float(ex.get("default_sets", 3) or 3))
+            reps = str(ex.get("default_reps", "10"))
+            target_weight = float(ex.get("default_weight", 0) or 0)
+
+        rows.append(
+            {
+                "session_name": focus,
+                "section": section,
+                "exercise_name": exercise_name,
+                "sets": sets,
+                "reps": reps,
+                "target_weight": target_weight,
+                "rest_sec": int(float(ex.get("rest_sec", 60) or 60)),
+                "rpe_range": str(ex.get("rpe_range", "6-8")),
+                "duration_min": duration,
+                "note": str(ex.get("cues", "")),
+                "joint_stress": str(ex.get("joint_stress", "Moderate")),
+                "primary_muscle": str(ex.get("primary_muscle", "")),
+            }
         )
-        avg_hr = st.slider("Yesterday average heart rate", 80, 180, 135)
-        knee = st.slider("Knee discomfort today", 0, 10, 0)
-        ankle = st.slider("Ankle discomfort today", 0, 10, 0)
-        fatigue = st.slider("Overall fatigue", 0, 10, 3)
-        goal = st.selectbox("Training goal", ["Fat-loss Cardio", "Recovery Cardio", "Strength Training", "Balanced"])
-        submit = st.form_submit_button("Generate Training Plan", type="primary")
 
-    if submit:
-        title, plan = training_recommendation(y_type, avg_hr, knee, ankle, fatigue, goal)
-        st.subheader(title)
-        for item in plan:
-            card("Plan item", item)
+    session = pd.DataFrame(rows)
+
+    # Trim if time is short
+    if available_min <= 35:
+        keep_sections = ["Warm-up", "Strength", "Core", "Cardio"]
+        session = session[session["section"].isin(keep_sections)].head(6)
+    elif available_min <= 45:
+        session = session[session["section"] != "Accessory"].append(session[session["section"] == "Accessory"].head(2), ignore_index=True) if False else session.head(7)
+
+    title = f"{focus} · {goal}"
+    return title, session.reset_index(drop=True), reason
+
+
+def save_latest_training_plan(session_df: pd.DataFrame) -> None:
+    if session_df.empty:
+        return
+    cols = ["session_name", "section", "exercise_name", "sets", "reps", "target_weight", "rest_sec", "rpe_range", "duration_min", "note"]
+    session_df[cols].to_csv(LATEST_TRAINING_PLAN_PATH, index=False)
+
+
+def load_latest_training_plan() -> pd.DataFrame:
+    if LATEST_TRAINING_PLAN_PATH.exists():
+        return pd.read_csv(LATEST_TRAINING_PLAN_PATH)
+    return pd.DataFrame()
+
+
+def training_plan_card(session_df: pd.DataFrame) -> None:
+    if session_df.empty:
+        st.info("Generate a session first.")
+        return
+
+    for section in session_df["section"].drop_duplicates():
+        st.markdown(f"**{section}**")
+        sub = session_df[session_df["section"] == section]
+        for _, row in sub.iterrows():
+            if int(row.get("sets", 0) or 0) == 0:
+                text = f"{row['exercise_name']} · {row.get('duration_min', 0)} min · {row.get('rpe_range', '')}"
+            else:
+                weight = row.get("target_weight", 0)
+                weight_text = f"{weight:g} kg" if float(weight) > 0 else "bodyweight"
+                text = f"{row['exercise_name']} · {int(row['sets'])} × {row['reps']} · {weight_text} · rest {int(row['rest_sec'])}s"
+            st.markdown(f"<span class='pill'>{text}</span>", unsafe_allow_html=True)
+
+
+def programme_overview_df() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            ["Weeks 1-4", "Adaptation", "3 strength + 2 low-impact cardio", "RPE 6-7, rebuild movement skill"],
+            ["Weeks 5-8", "Progression", "3 strength + 2-3 cardio", "Add small load/reps when form is good"],
+            ["Weeks 9-12", "Consolidation", "3 strength + conditioning", "Keep joints happy, improve consistency"],
+        ],
+        columns=["Phase", "Focus", "Weekly structure", "Progression rule"],
+    )
+
+
+def weekly_template_df() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            ["Day 1", "Full Body A", "Strength + easy conditioning"],
+            ["Day 2", "Zone 2 Cardio", "Incline walk / elliptical / bike"],
+            ["Day 3", "Full Body B", "Strength rebuild"],
+            ["Day 4", "Recovery", "Light cardio + mobility"],
+            ["Day 5", "Upper + Conditioning", "Upper strength + low-impact cardio"],
+            ["Day 6", "Optional", "Table tennis, easy walk, or rest"],
+            ["Day 7", "Rest", "Recovery and meal prep"],
+        ],
+        columns=["Day", "Session", "Purpose"],
+    )
+
+
+def exercise_input_cards(plan_df: pd.DataFrame, log_date: date) -> pd.DataFrame:
+    rows = []
+    if plan_df.empty:
+        return pd.DataFrame()
+
+    for i, row in plan_df.iterrows():
+        with st.expander(f"{row['section']} · {row['exercise_name']}", expanded=i < 3):
+            if int(row.get("sets", 0) or 0) == 0:
+                c1, c2, c3 = st.columns(3)
+                duration = c1.number_input("Duration (min)", min_value=0.0, max_value=120.0, value=float(row.get("duration_min", 20) or 20), step=1.0, key=f"log_duration_{i}")
+                avg_hr = c2.number_input("Avg HR", min_value=0, max_value=220, value=130, step=1, key=f"log_hr_{i}")
+                rpe = c3.slider("RPE", 1, 10, 5, key=f"log_rpe_cardio_{i}")
+                notes = st.text_input("Notes", value="", key=f"log_notes_cardio_{i}")
+                completed = st.checkbox("Completed", value=True, key=f"log_completed_cardio_{i}")
+                rows.append(
+                    {
+                        "date": str(log_date),
+                        "session_name": row["session_name"],
+                        "exercise_name": row["exercise_name"],
+                        "section": row["section"],
+                        "planned_sets": 0,
+                        "planned_reps": row.get("reps", ""),
+                        "planned_weight": 0,
+                        "actual_sets": 0,
+                        "actual_reps": duration,
+                        "actual_weight": avg_hr,
+                        "rpe": rpe,
+                        "completed": completed,
+                        "notes": notes,
+                    }
+                )
+            else:
+                c1, c2, c3, c4 = st.columns(4)
+                actual_sets = c1.number_input("Sets", min_value=0, max_value=10, value=int(row.get("sets", 3) or 3), step=1, key=f"log_sets_{i}")
+                actual_reps = c2.number_input("Reps", min_value=0, max_value=50, value=10, step=1, key=f"log_reps_{i}")
+                actual_weight = c3.number_input("Weight", min_value=0.0, max_value=300.0, value=float(row.get("target_weight", 0) or 0), step=2.5, key=f"log_weight_{i}")
+                rpe = c4.slider("RPE", 1, 10, 7, key=f"log_rpe_{i}")
+                completed = st.checkbox("Completed", value=True, key=f"log_completed_{i}")
+                notes = st.text_input("Notes", value="", key=f"log_notes_{i}")
+                rows.append(
+                    {
+                        "date": str(log_date),
+                        "session_name": row["session_name"],
+                        "exercise_name": row["exercise_name"],
+                        "section": row["section"],
+                        "planned_sets": row.get("sets", 0),
+                        "planned_reps": row.get("reps", ""),
+                        "planned_weight": row.get("target_weight", 0),
+                        "actual_sets": actual_sets,
+                        "actual_reps": actual_reps,
+                        "actual_weight": actual_weight,
+                        "rpe": rpe,
+                        "completed": completed,
+                        "notes": notes,
+                    }
+                )
+    return pd.DataFrame(rows)
+
+def training_planner_page() -> None:
+    hero("Training Planner", "Programme baseline + daily readiness adjustment, based on your previous 12-week training record.")
+
+    ex_df = load_exercise_library()
+
+    mode = st.radio(
+        "Training module",
+        ["Daily Planner", "12-week Programme", "Exercise Library"],
+        horizontal=True,
+        key="training_module_mode",
+    )
+
+    if mode == "Daily Planner":
+        left, middle, right = st.columns([1.05, 1.35, 0.9], gap="large")
+
+        with left:
+            st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+            panel_header("Step 1", "Readiness Inputs", "The programme gives direction; readiness decides today's execution.")
+            goal = st.selectbox("Goal", ["Strength Rebuild", "Fat Loss + Conditioning", "Recovery", "Balanced"], index=0)
+            preferred_focus = st.selectbox("Preferred session", ["Auto", "Full Body A", "Full Body B", "Lower + Core", "Upper + Conditioning", "Recovery Cardio"], index=0)
+            available_min = st.slider("Available time", 25, 75, 50, step=5)
+            yesterday = st.selectbox("Yesterday", ["Rest", "5 km Run", "Incline Walk", "Elliptical", "Strength Training", "Table Tennis"], index=0)
+            knee = st.slider("Knee discomfort", 0, 10, 0)
+            ankle = st.slider("Ankle discomfort", 0, 10, 0)
+            fatigue = st.slider("Fatigue", 0, 10, 3)
+
+            if st.button("Generate Training Session", type="primary", use_container_width=True):
+                title, session_df, reason = build_training_session(
+                    ex_df=ex_df,
+                    goal=goal,
+                    preferred_focus=preferred_focus,
+                    available_min=available_min,
+                    knee=knee,
+                    ankle=ankle,
+                    fatigue=fatigue,
+                )
+                st.session_state["active_training_title"] = title
+                st.session_state["active_training_plan"] = session_df
+                st.session_state["active_training_reason"] = reason
+                st.session_state["training_plan_generated_animation"] = True
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        session_df = st.session_state.get("active_training_plan", pd.DataFrame())
+        title = st.session_state.get("active_training_title", "")
+        reason = st.session_state.get("active_training_reason", "")
+
+        if st.session_state.pop("training_plan_generated_animation", False):
+            animated_success("Training session generated. Exercises are ready.")
+
+        with middle:
+            st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+            panel_header("Step 2", "Generated Session", "A practical gym session using exercises you already know.")
+            if session_df.empty:
+                st.info("Enter readiness inputs, then generate a session.")
+            else:
+                st.subheader(title)
+                st.caption(reason)
+                training_plan_card(session_df)
+                with st.expander("Detailed session table"):
+                    st.dataframe(
+                        session_df[["section", "exercise_name", "sets", "reps", "target_weight", "rest_sec", "rpe_range"]],
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with right:
+            st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+            panel_header("Step 3", "Session Summary", "Save the generated session to use it in Workout Log.")
+            if session_df.empty:
+                result_card("Session", "—", "Generate first")
+                result_card("Intensity", "—", "Generate first")
+                result_card("Joint Stress", "—", "Generate first")
+            else:
+                duration_est = int(available_min)
+                highest_joint = "Moderate" if session_df["joint_stress"].astype(str).str.contains("Moderate", case=False).any() else "Low"
+                result_card("Session", str(session_df["session_name"].iloc[0]), "Current plan")
+                result_card("Exercises", f"{len(session_df)}", "Including warm-up/cardio")
+                result_card("Duration", f"{duration_est} min", "Estimated")
+                training_status_badges("RPE 6-8", highest_joint, duration_est)
+                if st.button("Use this plan in Workout Log", use_container_width=True):
+                    save_latest_training_plan(session_df)
+                    animated_success("Training plan saved. Open Workout Log to record actual performance.")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    elif mode == "12-week Programme":
+        left, right = st.columns([1, 1], gap="large")
+        with left:
+            st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+            panel_header("Programme", "12-week Fat Loss + Strength Rebuild", "Baseline structure inspired by your previous personal training programme.")
+            st.dataframe(programme_overview_df(), use_container_width=True, hide_index=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        with right:
+            st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+            panel_header("Weekly Template", "Programme + Daily Adjustment", "This is the weekly plan. Daily Planner modifies it when pain or fatigue is high.")
+            st.dataframe(weekly_template_df(), use_container_width=True, hide_index=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    elif mode == "Exercise Library":
+        st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+        panel_header("Library", "Exercise Library", "Selected exercises are from your uploaded 12-week training record; recommended exercises support fat loss and joint-friendly training.")
+
+        source_filter = st.radio("Source", ["All", "Selected", "Recommended"], horizontal=True)
+        view = ex_df.copy()
+        if source_filter == "Selected":
+            view = view[view["selected"] == True]
+        elif source_filter == "Recommended":
+            view = view[view["source"] == "Recommended"]
+
+        pattern_filter = st.multiselect("Movement pattern", sorted(view["pattern"].dropna().unique().tolist()))
+        if pattern_filter:
+            view = view[view["pattern"].isin(pattern_filter)]
+
+        st.dataframe(
+            view[[
+                "exercise_name", "source", "selected", "pattern", "primary_muscle",
+                "equipment", "joint_stress", "default_sets", "default_reps",
+                "default_weight", "rpe_range", "cues"
+            ]],
+            use_container_width=True,
+            hide_index=True,
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def workout_log_page() -> None:
-    hero("Workout Log", "Date-indexed actual workout record from Apple Watch or gym notes.")
+    hero("Workout Log", "Date-indexed actual training record. Use the latest generated training plan as default.")
 
-    with st.form("workout_log_form"):
-        d = st.date_input("Workout date", date.today())
-        t = st.selectbox("Workout type", ["Incline Walk", "5 km Run", "Elliptical", "Strength Training", "Table Tennis", "Other"])
-        duration = st.number_input("Duration (min)", min_value=0.0, max_value=300.0, value=40.0, step=1.0)
-        distance = st.number_input("Distance (km)", min_value=0.0, max_value=50.0, value=0.0, step=0.1)
-        hr = st.number_input("Average heart rate", min_value=0, max_value=220, value=135, step=1)
-        kcal = st.number_input("Apple Watch active kcal", min_value=0, max_value=2000, value=300, step=10)
-        knee_log = st.slider("Knee discomfort after workout", 0, 10, 0)
-        ankle_log = st.slider("Ankle discomfort after workout", 0, 10, 0)
-        rpe = st.slider("RPE", 1, 10, 5)
-        notes = st.text_area("Notes")
+    latest = load_latest_training_plan()
 
-        if st.form_submit_button("Save Workout", type="primary"):
+    left, middle, right = st.columns([1.0, 1.45, 0.85], gap="large")
+
+    with left:
+        st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+        panel_header("Step 1", "Workout Date", "Choose the actual training date.")
+        log_date = st.date_input("Workout date", date.today())
+        use_latest = False
+        if not latest.empty:
+            use_latest = st.checkbox("Use latest generated training plan", value=True)
+            st.caption(f"Latest plan: {latest['session_name'].iloc[0]}")
+        else:
+            st.info("No latest training plan. Generate one in Training Planner first.")
+        session_name = st.text_input("Session name", value=latest["session_name"].iloc[0] if use_latest and not latest.empty else "Manual Workout")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    detail_df = pd.DataFrame()
+
+    with middle:
+        st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+        panel_header("Step 2", "Exercise Log", "Record actual sets, reps, weight and RPE.")
+        if use_latest and not latest.empty:
+            detail_df = exercise_input_cards(latest, log_date)
+        else:
+            st.info("Manual logging is available in the summary panel for now. Generate a plan first for detailed exercise cards.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with right:
+        st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+        panel_header("Step 3", "Workout Summary", "Save a summary and detailed exercise rows.")
+
+        duration = st.number_input("Duration (min)", min_value=0.0, max_value=300.0, value=50.0, step=1.0)
+        active_kcal = st.number_input("Active kcal", min_value=0, max_value=2000, value=300, step=10)
+        avg_hr = st.number_input("Avg HR", min_value=0, max_value=220, value=135, step=1)
+        knee_after = st.slider("Knee after", 0, 10, 0)
+        ankle_after = st.slider("Ankle after", 0, 10, 0)
+        rpe_session = st.slider("Session RPE", 1, 10, 6)
+        notes = st.text_area("Session notes")
+
+        if st.button("Save Workout", type="primary", use_container_width=True):
             append_csv(
                 WORKOUT_LOG_PATH,
                 [
                     {
-                        "date": str(d),
-                        "type": t,
+                        "date": str(log_date),
+                        "type": session_name,
                         "duration_min": duration,
-                        "distance_km": distance,
-                        "avg_hr": hr,
-                        "active_kcal": kcal,
-                        "knee_pain": knee_log,
-                        "ankle_pain": ankle_log,
-                        "rpe": rpe,
+                        "distance_km": 0,
+                        "avg_hr": avg_hr,
+                        "active_kcal": active_kcal,
+                        "knee_pain": knee_after,
+                        "ankle_pain": ankle_after,
+                        "rpe": rpe_session,
                         "notes": notes,
                     }
                 ],
             )
-            st.success(f"Workout saved for {d}.")
+            if not detail_df.empty:
+                detail_rows = detail_df.to_dict("records")
+                append_csv(WORKOUT_DETAIL_LOG_PATH, detail_rows)
+
+            animated_success(f"Workout saved for {log_date}.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def progress_page() -> None:
@@ -1607,6 +2592,7 @@ def progress_page() -> None:
 
     body = load_csv(BODY_LOG_PATH)
     workouts = load_csv(WORKOUT_LOG_PATH)
+    workout_details = load_csv(WORKOUT_DETAIL_LOG_PATH)
     food = load_csv(FOOD_LOG_PATH)
 
     with st.expander("Add body metrics", expanded=True):
@@ -1646,6 +2632,10 @@ def progress_page() -> None:
         workouts["date"] = pd.to_datetime(workouts["date"])
         fig2 = px.bar(workouts, x="date", y="active_kcal", color="type", title="Workout Active Calories")
         st.plotly_chart(fig2, use_container_width=True)
+
+    if not workout_details.empty:
+        st.subheader("Recent Detailed Exercise Logs")
+        st.dataframe(workout_details.tail(30), use_container_width=True, hide_index=True)
 
     if not food.empty:
         daily = food.groupby("date", as_index=False)[["kcal", "protein", "fiber"]].sum()
@@ -1695,6 +2685,9 @@ def settings_page(food_db: pd.DataFrame) -> None:
     st.subheader("Raw Logs")
     st.dataframe(load_csv(FOOD_LOG_PATH), use_container_width=True, hide_index=True)
     st.dataframe(load_csv(WORKOUT_LOG_PATH), use_container_width=True, hide_index=True)
+    st.dataframe(load_csv(WORKOUT_DETAIL_LOG_PATH), use_container_width=True, hide_index=True)
+    st.dataframe(load_exercise_library(), use_container_width=True, hide_index=True)
+    st.dataframe(load_latest_training_plan(), use_container_width=True, hide_index=True)
     st.dataframe(load_csv(BODY_LOG_PATH), use_container_width=True, hide_index=True)
     st.dataframe(load_latest_plan(), use_container_width=True, hide_index=True)
 
