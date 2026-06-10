@@ -2719,44 +2719,310 @@ def training_planner_page() -> None:
         st.markdown("</div>", unsafe_allow_html=True)
 
 
+
+def manual_cardio_log_card(activity_name: str, log_date: date, session_name: str, key_prefix: str) -> pd.DataFrame:
+    st.caption("Manual cardio log. Useful when you did treadmill incline walk, run, elliptical, bike, or table tennis without generating a plan first.")
+
+    completed = st.checkbox(
+        f"Completed {activity_name}",
+        value=True,
+        key=f"{key_prefix}_completed",
+    )
+
+    duration = dual_value_input(
+        "Duration",
+        min_value=0.0,
+        max_value=120.0,
+        default_value=40.0,
+        step=1.0,
+        key_prefix=f"{key_prefix}_duration",
+        unit="min",
+    )
+
+    distance = dual_value_input(
+        "Distance",
+        min_value=0.0,
+        max_value=25.0,
+        default_value=3.0 if "Walk" in activity_name or "Run" in activity_name else 0.0,
+        step=0.1,
+        key_prefix=f"{key_prefix}_distance",
+        unit="km",
+    )
+
+    avg_hr = dual_value_input(
+        "Average HR",
+        min_value=80.0,
+        max_value=190.0,
+        default_value=135.0,
+        step=1.0,
+        key_prefix=f"{key_prefix}_hr",
+        unit="bpm",
+    )
+
+    if "Treadmill" in activity_name or "Incline" in activity_name or "Run" in activity_name:
+        speed = dual_value_input(
+            "Speed",
+            min_value=0.0,
+            max_value=16.0,
+            default_value=6.0 if "Walk" in activity_name or "Incline" in activity_name else 8.0,
+            step=0.1,
+            key_prefix=f"{key_prefix}_speed",
+            unit="km/h",
+        )
+        incline = dual_value_input(
+            "Incline",
+            min_value=0.0,
+            max_value=20.0,
+            default_value=8.0 if "Walk" in activity_name or "Incline" in activity_name else 0.0,
+            step=0.5,
+            key_prefix=f"{key_prefix}_incline",
+            unit="%",
+        )
+    else:
+        speed = 0.0
+        incline = 0.0
+
+    rpe = st.slider("RPE", 1, 10, 5, key=f"{key_prefix}_rpe")
+    notes = st.text_input(
+        "Notes",
+        value="",
+        key=f"{key_prefix}_notes",
+        placeholder="Optional: treadmill settings, feeling, pain, etc.",
+    )
+
+    detail_note = (
+        f"Manual cardio. Distance={distance:.1f}km; Speed={speed:.1f}km/h; "
+        f"Incline={incline:.1f}%; Notes={notes}"
+    )
+
+    return pd.DataFrame(
+        [
+            {
+                "date": str(log_date),
+                "session_name": session_name,
+                "exercise_name": activity_name,
+                "section": "Manual Cardio",
+                "set_index": 1,
+                "planned_sets": 0,
+                "planned_reps": "manual",
+                "planned_weight": 0,
+                "actual_sets": 0,
+                "actual_reps": duration,
+                "actual_weight": avg_hr,
+                "rpe": rpe,
+                "completed": completed,
+                "notes": detail_note,
+            }
+        ]
+    )
+
+
+def manual_strength_log_cards(
+    ex_df: pd.DataFrame,
+    selected_exercises: List[str],
+    log_date: date,
+    session_name: str,
+    key_prefix: str,
+) -> pd.DataFrame:
+    rows = []
+
+    if not selected_exercises:
+        st.info("Choose at least one strength exercise to log.")
+        return pd.DataFrame()
+
+    for i, exercise_name in enumerate(selected_exercises):
+        ex = get_exercise_row(ex_df, exercise_name)
+        default_sets = int(float(ex.get("default_sets", 3) or 3))
+        default_reps = parse_default_reps(str(ex.get("default_reps", "10")))
+        default_weight = float(ex.get("default_weight", 0) or 0)
+
+        with st.expander(f"Manual Strength · {exercise_name}", expanded=i < 2):
+            st.caption(str(ex.get("cues", "")))
+
+            planned_sets = st.number_input(
+                "Number of sets",
+                min_value=1,
+                max_value=8,
+                value=max(1, default_sets),
+                step=1,
+                key=f"{key_prefix}_{safe_key(exercise_name)}_sets",
+            )
+
+            for set_no in range(1, int(planned_sets) + 1):
+                actual = set_row_card(
+                    exercise_name=exercise_name,
+                    set_no=set_no,
+                    planned_weight=default_weight,
+                    planned_reps=default_reps,
+                    key_prefix=f"{key_prefix}_{safe_key(exercise_name)}",
+                )
+
+                rows.append(
+                    {
+                        "date": str(log_date),
+                        "session_name": session_name,
+                        "exercise_name": exercise_name,
+                        "section": "Manual Strength",
+                        "set_index": actual["set_index"],
+                        "planned_sets": int(planned_sets),
+                        "planned_reps": str(ex.get("default_reps", "10")),
+                        "planned_weight": default_weight,
+                        "actual_sets": actual["actual_sets"],
+                        "actual_reps": actual["actual_reps"],
+                        "actual_weight": actual["actual_weight"],
+                        "rpe": actual["rpe"],
+                        "completed": actual["completed"],
+                        "notes": actual["notes"],
+                    }
+                )
+
+    return pd.DataFrame(rows)
+
+
+def manual_workout_input_cards(ex_df: pd.DataFrame, log_date: date, session_name: str) -> pd.DataFrame:
+    log_type = st.radio(
+        "Manual workout type",
+        ["Cardio", "Strength", "Mixed"],
+        horizontal=True,
+        key="manual_workout_type",
+    )
+
+    rows = []
+
+    if log_type in ["Cardio", "Mixed"]:
+        activity = st.selectbox(
+            "Cardio activity",
+            [
+                "Treadmill Incline Walk",
+                "Treadmill Run",
+                "Outdoor Run",
+                "Elliptical Zone 2",
+                "Bike Zone 2",
+                "Table Tennis",
+                "Other Cardio",
+            ],
+            index=0,
+            key="manual_cardio_activity",
+        )
+        cardio_df = manual_cardio_log_card(
+            activity_name=activity,
+            log_date=log_date,
+            session_name=session_name,
+            key_prefix=f"manual_cardio_{safe_key(activity)}",
+        )
+        if not cardio_df.empty:
+            rows.extend(cardio_df.to_dict("records"))
+
+    if log_type in ["Strength", "Mixed"]:
+        st.markdown("<div class='small-divider'></div>", unsafe_allow_html=True)
+        st.caption("Choose strength exercises from your library. The app will create set-by-set checkboxes and weight/reps sliders.")
+
+        strength_pool = ex_df[
+            (ex_df["category"].astype(str).str.lower().isin(["strength", "core"]))
+            | (ex_df["pattern"].astype(str).str.lower().str.contains("push|pull|squat|hinge|core|curl|extension|row", na=False))
+        ].copy()
+
+        selected_only = st.checkbox("Show only exercises from my previous programme", value=True, key="manual_selected_only")
+        if selected_only and "selected" in strength_pool.columns:
+            strength_pool = strength_pool[strength_pool["selected"] == True]
+
+        selected = st.multiselect(
+            "Strength exercises",
+            options=strength_pool["exercise_name"].tolist(),
+            default=[],
+            key="manual_strength_exercises",
+        )
+
+        strength_df = manual_strength_log_cards(
+            ex_df=ex_df,
+            selected_exercises=selected,
+            log_date=log_date,
+            session_name=session_name,
+            key_prefix="manual_strength",
+        )
+        if not strength_df.empty:
+            rows.extend(strength_df.to_dict("records"))
+
+    if not rows:
+        return pd.DataFrame()
+
+    return pd.DataFrame(rows)
+
+
 def workout_log_page() -> None:
-    hero("Workout Log", "Date-indexed actual training record. Use the latest generated training plan as default.")
+    hero("Workout Log", "Date-indexed actual training record. Use a generated plan or manually record what you did in the gym.")
 
     latest = load_latest_training_plan()
+    ex_df = load_exercise_library()
 
     left, middle, right = st.columns([1.0, 1.45, 0.85], gap="large")
 
     with left:
         st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
-        panel_header("Step 1", "Workout Date", "Choose the actual training date.")
+        panel_header("Step 1", "Workout Setup", "Choose the actual date and whether you are logging a generated plan or a manual workout.")
+
         log_date = st.date_input("Workout date", date.today())
-        use_latest = False
+
         if not latest.empty:
-            use_latest = st.checkbox("Use latest generated training plan", value=True)
-            st.caption(f"Latest plan: {latest['session_name'].iloc[0]}")
+            default_mode = "Latest generated plan"
+            mode_options = ["Latest generated plan", "Manual workout"]
         else:
-            st.info("No latest training plan. Generate one in Training Planner first.")
-        session_name = st.text_input("Session name", value=latest["session_name"].iloc[0] if use_latest and not latest.empty else "Manual Workout")
+            default_mode = "Manual workout"
+            mode_options = ["Manual workout"]
+
+        log_mode = st.radio(
+            "Log mode",
+            mode_options,
+            index=mode_options.index(default_mode),
+            key="workout_log_mode",
+        )
+
+        if log_mode == "Latest generated plan":
+            st.caption(f"Latest plan: {latest['session_name'].iloc[0]}")
+            default_session_name = str(latest["session_name"].iloc[0])
+            session_help = "This is automatically loaded from the latest generated training plan. You can rename it if the session was modified."
+        else:
+            default_session_name = "Manual Workout"
+            session_help = "Use this when you trained without generating a plan first, for example treadmill incline walk."
+
+        session_name = st.text_input(
+            "Session label",
+            value=default_session_name,
+            help=session_help,
+            key="workout_session_label",
+        )
+
         st.markdown("</div>", unsafe_allow_html=True)
 
     detail_df = pd.DataFrame()
 
     with middle:
         st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
-        panel_header("Step 2", "Exercise Log", "Each planned set becomes one row with a checkbox, weight slider and reps slider.")
-        if use_latest and not latest.empty:
+
+        if log_mode == "Latest generated plan":
+            panel_header("Step 2", "Planned Exercise Log", "Each planned set becomes one row with a checkbox, weight slider and reps slider.")
             detail_df = exercise_input_cards(latest, log_date)
         else:
-            st.info("Manual logging is available in the summary panel for now. Generate a plan first for detailed exercise cards.")
+            panel_header("Step 2", "Manual Exercise Log", "Select the exercise you actually did. Useful for treadmill incline walk, running, elliptical, or ad-hoc strength work.")
+            detail_df = manual_workout_input_cards(ex_df, log_date, session_name)
+
         st.markdown("</div>", unsafe_allow_html=True)
 
     with right:
         st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
         panel_header("Step 3", "Workout Summary", "Save a summary and detailed exercise rows.")
 
-        duration = st.number_input("Duration (min)", min_value=0.0, max_value=300.0, value=50.0, step=1.0)
+        if log_mode == "Manual workout" and not detail_df.empty:
+            manual_cardio_rows = detail_df[detail_df["section"].astype(str).str.contains("Manual Cardio", na=False)]
+            default_duration = float(manual_cardio_rows["actual_reps"].sum()) if not manual_cardio_rows.empty else 45.0
+            default_hr = float(manual_cardio_rows["actual_weight"].mean()) if not manual_cardio_rows.empty else 135.0
+        else:
+            default_duration = 50.0
+            default_hr = 135.0
+
+        duration = st.number_input("Duration (min)", min_value=0.0, max_value=300.0, value=float(default_duration), step=1.0)
         active_kcal = st.number_input("Active kcal", min_value=0, max_value=2000, value=300, step=10)
-        avg_hr = st.number_input("Avg HR", min_value=0, max_value=220, value=135, step=1)
+        avg_hr = st.number_input("Avg HR", min_value=0, max_value=220, value=int(default_hr), step=1)
         knee_after = st.slider("Knee after", 0, 10, 0)
         ankle_after = st.slider("Ankle after", 0, 10, 0)
         rpe_session = st.slider("Session RPE", 1, 10, 6)
