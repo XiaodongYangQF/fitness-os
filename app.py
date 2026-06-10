@@ -731,7 +731,7 @@ def ensure_files() -> None:
 
     for path, cols in [
         (FOOD_LOG_PATH, ["date", "meal", "food_name", "weight_g", "kcal", "protein", "carbs", "fat", "fiber"]),
-        (WORKOUT_LOG_PATH, ["date", "type", "duration_min", "distance_km", "avg_hr", "active_kcal", "knee_pain", "ankle_pain", "rpe", "notes"]),
+        (WORKOUT_LOG_PATH, ["date", "type", "duration_min", "distance_km", "avg_hr", "active_kcal", "total_kcal", "effort", "knee_pain", "ankle_pain", "rpe", "notes"]),
         (WORKOUT_DETAIL_LOG_PATH, ["date", "session_name", "exercise_name", "section", "set_index", "planned_sets", "planned_reps", "planned_weight", "actual_sets", "actual_reps", "actual_weight", "rpe", "completed", "notes"]),
         (LATEST_TRAINING_PLAN_PATH, ["session_name", "section", "exercise_name", "sets", "reps", "target_weight", "rest_sec", "rpe_range", "duration_min", "note"]),
         (BODY_LOG_PATH, ["date", "morning_weight", "evening_weight", "waist_cm", "stool_status", "notes"]),
@@ -1762,6 +1762,72 @@ def inject_css() -> None:
             stroke: #ffffff !important;
         }
 
+
+        /* v0.17 Apple Watch-style workout input cards */
+        .watch-card {
+            background: #111827;
+            color: #ffffff;
+            border-radius: 22px;
+            padding: 16px 16px;
+            margin: 10px 0 14px 0;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.20);
+        }
+
+        .watch-card-title {
+            font-size: 1.05rem;
+            font-weight: 900;
+            color: #ffffff;
+            margin-bottom: 10px;
+        }
+
+        .watch-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .watch-metric {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 12px 12px;
+        }
+
+        .watch-label {
+            color: rgba(255,255,255,0.72);
+            font-size: 0.76rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .watch-value {
+            color: #ffffff;
+            font-size: 1.35rem;
+            font-weight: 900;
+            line-height: 1.12;
+        }
+
+        .watch-value-blue { color: #38bdf8; }
+        .watch-value-pink { color: #f472b6; }
+        .watch-value-red { color: #fb7185; }
+        .watch-value-yellow { color: #fde047; }
+        .watch-value-cyan { color: #67e8f9; }
+
+        .watch-note {
+            color: rgba(255,255,255,0.68);
+            font-size: 0.82rem;
+            margin-top: 8px;
+        }
+
+        .split-card {
+            border: 1px solid #dbeafe;
+            border-radius: 18px;
+            padding: 12px 14px;
+            margin: 8px 0;
+            background: #ffffff;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.06);
+        }
+
         @media (max-width: 640px) {
             div[data-testid="stRadio"] div[role="radiogroup"] {
                 gap: 0.45rem !important;
@@ -2720,6 +2786,330 @@ def training_planner_page() -> None:
 
 
 
+
+def pace_to_text(duration_min: float, distance_km: float) -> str:
+    if distance_km <= 0:
+        return "—"
+    pace_min = duration_min / distance_km
+    minutes = int(pace_min)
+    seconds = int(round((pace_min - minutes) * 60))
+    if seconds == 60:
+        minutes += 1
+        seconds = 0
+    return f"{minutes}'{seconds:02d}\"/km"
+
+
+def duration_to_watch_text(duration_min: float) -> str:
+    total_seconds = int(round(duration_min * 60))
+    h = total_seconds // 3600
+    m = (total_seconds % 3600) // 60
+    s = total_seconds % 60
+    if h > 0:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"0:{m:02d}:{s:02d}"
+
+
+def apple_watch_preview(
+    workout_type: str,
+    duration_min: float,
+    distance_km: float,
+    active_kcal: float,
+    total_kcal: float,
+    avg_hr: float,
+    effort: int,
+) -> None:
+    pace = pace_to_text(duration_min, distance_km)
+    duration_text = duration_to_watch_text(duration_min)
+
+    st.markdown(
+        f"""
+        <div class="watch-card">
+          <div class="watch-card-title">{workout_type} · Workout Details</div>
+          <div class="watch-grid">
+            <div class="watch-metric">
+              <div class="watch-label">Workout Time</div>
+              <div class="watch-value watch-value-yellow">{duration_text}</div>
+            </div>
+            <div class="watch-metric">
+              <div class="watch-label">Distance</div>
+              <div class="watch-value watch-value-blue">{distance_km:.2f} km</div>
+            </div>
+            <div class="watch-metric">
+              <div class="watch-label">Active Kilocalories</div>
+              <div class="watch-value watch-value-pink">{active_kcal:.0f} kcal</div>
+            </div>
+            <div class="watch-metric">
+              <div class="watch-label">Total Kilocalories</div>
+              <div class="watch-value watch-value-pink">{total_kcal:.0f} kcal</div>
+            </div>
+            <div class="watch-metric">
+              <div class="watch-label">Avg Pace</div>
+              <div class="watch-value watch-value-cyan">{pace}</div>
+            </div>
+            <div class="watch-metric">
+              <div class="watch-label">Avg Heart Rate</div>
+              <div class="watch-value watch-value-red">{avg_hr:.0f} bpm</div>
+            </div>
+          </div>
+          <div class="watch-note">Effort: {effort}/10 · This preview follows the Apple Watch fields.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+
+def apple_watch_strength_preview(
+    workout_type: str,
+    duration_min: float,
+    active_kcal: float,
+    total_kcal: float,
+    avg_hr: float,
+    effort: int,
+) -> None:
+    duration_text = duration_to_watch_text(duration_min)
+    effort_text = f"{effort}/10" if effort > 0 else "Not added"
+
+    st.markdown(
+        f"""
+        <div class="watch-card">
+          <div class="watch-card-title">{workout_type} · Workout Details</div>
+          <div class="watch-grid">
+            <div class="watch-metric">
+              <div class="watch-label">Workout Time</div>
+              <div class="watch-value watch-value-yellow">{duration_text}</div>
+            </div>
+            <div class="watch-metric">
+              <div class="watch-label">Active Kilocalories</div>
+              <div class="watch-value watch-value-pink">{active_kcal:.0f} kcal</div>
+            </div>
+            <div class="watch-metric">
+              <div class="watch-label">Total Kilocalories</div>
+              <div class="watch-value watch-value-pink">{total_kcal:.0f} kcal</div>
+            </div>
+            <div class="watch-metric">
+              <div class="watch-label">Avg Heart Rate</div>
+              <div class="watch-value watch-value-red">{avg_hr:.0f} bpm</div>
+            </div>
+          </div>
+          <div class="watch-note">Effort: {effort_text} · Strength mode summary, matching Apple Watch fields.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def apple_watch_strength_summary_inputs(key_prefix: str) -> Dict[str, float]:
+    st.caption("Enter the Apple Watch strength-training summary first. Sets, reps and weights are logged separately below.")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        duration_min = st.number_input(
+            "Workout Time (minutes)",
+            min_value=0.0,
+            max_value=300.0,
+            value=47.0,
+            step=1.0,
+            key=f"{key_prefix}_strength_duration",
+            help="Example: 46:58 ≈ 47.0 minutes.",
+        )
+    with c2:
+        active_kcal = st.number_input(
+            "Active Kilocalories",
+            min_value=0,
+            max_value=2000,
+            value=252,
+            step=5,
+            key=f"{key_prefix}_strength_active_kcal",
+        )
+
+    c3, c4 = st.columns(2)
+    with c3:
+        total_kcal = st.number_input(
+            "Total Kilocalories",
+            min_value=0,
+            max_value=2500,
+            value=322,
+            step=5,
+            key=f"{key_prefix}_strength_total_kcal",
+        )
+    with c4:
+        avg_hr = st.number_input(
+            "Avg Heart Rate",
+            min_value=0,
+            max_value=220,
+            value=113,
+            step=1,
+            key=f"{key_prefix}_strength_avg_hr",
+        )
+
+    effort_choice = st.radio(
+        "Effort",
+        ["Not added", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
+        horizontal=True,
+        index=0,
+        key=f"{key_prefix}_strength_effort_choice",
+        help="Apple Watch sometimes shows Add Effort. You can leave it as Not added.",
+    )
+    effort = 0 if effort_choice == "Not added" else int(effort_choice)
+
+    apple_watch_strength_preview(
+        workout_type="Traditional Strength Training",
+        duration_min=duration_min,
+        active_kcal=active_kcal,
+        total_kcal=total_kcal,
+        avg_hr=avg_hr,
+        effort=effort,
+    )
+
+    return {
+        "duration_min": float(duration_min),
+        "distance_km": 0.0,
+        "avg_hr": float(avg_hr),
+        "active_kcal": float(active_kcal),
+        "total_kcal": float(total_kcal),
+        "effort": int(effort),
+    }
+
+
+def apple_watch_cardio_log_card(activity_name: str, log_date: date, session_name: str, key_prefix: str):
+    st.caption("Enter the same fields you see in Apple Fitness / Apple Watch.")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        duration_min = st.number_input(
+            "Workout Time (minutes)",
+            min_value=0.0,
+            max_value=300.0,
+            value=45.3,
+            step=0.1,
+            key=f"{key_prefix}_watch_duration",
+            help="Example: 45:18 ≈ 45.3 minutes.",
+        )
+    with c2:
+        distance_km = st.number_input(
+            "Distance (km)",
+            min_value=0.0,
+            max_value=50.0,
+            value=4.05 if "Walk" in activity_name or "Run" in activity_name else 0.0,
+            step=0.01,
+            key=f"{key_prefix}_watch_distance",
+        )
+
+    c3, c4 = st.columns(2)
+    with c3:
+        active_kcal = st.number_input(
+            "Active Kilocalories",
+            min_value=0,
+            max_value=2500,
+            value=435,
+            step=5,
+            key=f"{key_prefix}_watch_active_kcal",
+        )
+    with c4:
+        total_kcal = st.number_input(
+            "Total Kilocalories",
+            min_value=0,
+            max_value=3000,
+            value=504,
+            step=5,
+            key=f"{key_prefix}_watch_total_kcal",
+        )
+
+    c5, c6 = st.columns(2)
+    with c5:
+        avg_hr = st.number_input(
+            "Avg Heart Rate",
+            min_value=0,
+            max_value=220,
+            value=136,
+            step=1,
+            key=f"{key_prefix}_watch_avg_hr",
+        )
+    with c6:
+        effort = st.slider(
+            "Effort",
+            min_value=1,
+            max_value=10,
+            value=6,
+            key=f"{key_prefix}_watch_effort",
+        )
+
+    apple_watch_preview(
+        workout_type=activity_name,
+        duration_min=duration_min,
+        distance_km=distance_km,
+        active_kcal=active_kcal,
+        total_kcal=total_kcal,
+        avg_hr=avg_hr,
+        effort=effort,
+    )
+
+    split_note = ""
+    with st.expander("Optional splits", expanded=False):
+        st.caption("Optional: copy split time / pace / heart rate from Apple Watch.")
+        split_rows = []
+        num_splits = st.number_input("Number of splits", min_value=0, max_value=10, value=0, step=1, key=f"{key_prefix}_num_splits")
+        for i in range(1, int(num_splits) + 1):
+            st.markdown(f"<div class='split-card'><strong>Split {i}</strong></div>", unsafe_allow_html=True)
+            s1, s2, s3 = st.columns(3)
+            split_time = s1.text_input("Time", value="", key=f"{key_prefix}_split_time_{i}", placeholder="11:00")
+            split_pace = s2.text_input("Pace", value="", key=f"{key_prefix}_split_pace_{i}", placeholder="11'00''")
+            split_hr = s3.number_input("HR", min_value=0, max_value=220, value=0, step=1, key=f"{key_prefix}_split_hr_{i}")
+            split_rows.append(f"Split {i}: time={split_time}, pace={split_pace}, hr={split_hr}")
+        split_note = " | ".join(split_rows)
+
+    notes = st.text_input(
+        "Notes",
+        value="",
+        key=f"{key_prefix}_watch_notes",
+        placeholder="Optional: treadmill speed/incline, feeling, pain, etc.",
+    )
+
+    completed = st.checkbox(
+        f"Completed {activity_name}",
+        value=True,
+        key=f"{key_prefix}_watch_completed",
+    )
+
+    detail_note = (
+        f"Apple Watch style log. Active kcal={active_kcal}; Total kcal={total_kcal}; "
+        f"Avg pace={pace_to_text(duration_min, distance_km)}; Effort={effort}/10; "
+        f"Splits={split_note}; Notes={notes}"
+    )
+
+    detail_df = pd.DataFrame(
+        [
+            {
+                "date": str(log_date),
+                "session_name": session_name,
+                "exercise_name": activity_name,
+                "section": "Apple Watch Cardio",
+                "set_index": 1,
+                "planned_sets": 0,
+                "planned_reps": "manual",
+                "planned_weight": 0,
+                "actual_sets": 0,
+                "actual_reps": duration_min,
+                "actual_weight": avg_hr,
+                "rpe": effort,
+                "completed": completed,
+                "notes": detail_note,
+            }
+        ]
+    )
+
+    summary = {
+        "duration_min": float(duration_min),
+        "distance_km": float(distance_km),
+        "avg_hr": float(avg_hr),
+        "active_kcal": float(active_kcal),
+        "total_kcal": float(total_kcal),
+        "effort": int(effort),
+    }
+    return detail_df, summary
+
+
 def manual_cardio_log_card(activity_name: str, log_date: date, session_name: str, key_prefix: str) -> pd.DataFrame:
     st.caption("Manual cardio log. Useful when you did treadmill incline walk, run, elliptical, bike, or table tennis without generating a plan first.")
 
@@ -2879,7 +3269,7 @@ def manual_strength_log_cards(
     return pd.DataFrame(rows)
 
 
-def manual_workout_input_cards(ex_df: pd.DataFrame, log_date: date, session_name: str) -> pd.DataFrame:
+def manual_workout_input_cards(ex_df: pd.DataFrame, log_date: date, session_name: str):
     log_type = st.radio(
         "Manual workout type",
         ["Cardio", "Strength", "Mixed"],
@@ -2888,34 +3278,50 @@ def manual_workout_input_cards(ex_df: pd.DataFrame, log_date: date, session_name
     )
 
     rows = []
+    summary_defaults = {
+        "duration_min": 45.0,
+        "distance_km": 0.0,
+        "avg_hr": 135.0,
+        "active_kcal": 300.0,
+        "total_kcal": 350.0,
+        "effort": 6,
+    }
 
-    if log_type in ["Cardio", "Mixed"]:
+    if log_type == "Cardio":
         activity = st.selectbox(
             "Cardio activity",
             [
-                "Treadmill Incline Walk",
-                "Treadmill Run",
+                "Indoor Walk / Treadmill Incline Walk",
+                "Indoor Run / Treadmill Run",
                 "Outdoor Run",
-                "Elliptical Zone 2",
-                "Bike Zone 2",
+                "Elliptical",
+                "Bike",
                 "Table Tennis",
                 "Other Cardio",
             ],
             index=0,
             key="manual_cardio_activity",
         )
-        cardio_df = manual_cardio_log_card(
+
+        cardio_df, cardio_summary = apple_watch_cardio_log_card(
             activity_name=activity,
             log_date=log_date,
             session_name=session_name,
-            key_prefix=f"manual_cardio_{safe_key(activity)}",
+            key_prefix=f"manual_watch_{safe_key(activity)}",
         )
         if not cardio_df.empty:
             rows.extend(cardio_df.to_dict("records"))
+            summary_defaults.update(cardio_summary)
 
-    if log_type in ["Strength", "Mixed"]:
+    elif log_type == "Strength":
+        summary_defaults.update(
+            apple_watch_strength_summary_inputs(
+                key_prefix=f"manual_watch_strength_{safe_key(session_name)}"
+            )
+        )
+
         st.markdown("<div class='small-divider'></div>", unsafe_allow_html=True)
-        st.caption("Choose strength exercises from your library. The app will create set-by-set checkboxes and weight/reps sliders.")
+        st.caption("Now log the gym details that Apple Watch does not track: sets, reps and weight.")
 
         strength_pool = ex_df[
             (ex_df["category"].astype(str).str.lower().isin(["strength", "core"]))
@@ -2943,10 +3349,66 @@ def manual_workout_input_cards(ex_df: pd.DataFrame, log_date: date, session_name
         if not strength_df.empty:
             rows.extend(strength_df.to_dict("records"))
 
-    if not rows:
-        return pd.DataFrame()
+    else:
+        st.caption("Mixed workout: use cardio summary first, then add strength details.")
+        activity = st.selectbox(
+            "Cardio activity",
+            [
+                "Indoor Walk / Treadmill Incline Walk",
+                "Indoor Run / Treadmill Run",
+                "Outdoor Run",
+                "Elliptical",
+                "Bike",
+                "Table Tennis",
+                "Other Cardio",
+            ],
+            index=0,
+            key="manual_cardio_activity_mixed",
+        )
 
-    return pd.DataFrame(rows)
+        cardio_df, cardio_summary = apple_watch_cardio_log_card(
+            activity_name=activity,
+            log_date=log_date,
+            session_name=session_name,
+            key_prefix=f"manual_watch_mixed_{safe_key(activity)}",
+        )
+        if not cardio_df.empty:
+            rows.extend(cardio_df.to_dict("records"))
+            summary_defaults.update(cardio_summary)
+
+        st.markdown("<div class='small-divider'></div>", unsafe_allow_html=True)
+        st.caption("Optional: add strength exercises performed in the same workout.")
+
+        strength_pool = ex_df[
+            (ex_df["category"].astype(str).str.lower().isin(["strength", "core"]))
+            | (ex_df["pattern"].astype(str).str.lower().str.contains("push|pull|squat|hinge|core|curl|extension|row", na=False))
+        ].copy()
+
+        selected_only = st.checkbox("Show only exercises from my previous programme", value=True, key="manual_selected_only_mixed")
+        if selected_only and "selected" in strength_pool.columns:
+            strength_pool = strength_pool[strength_pool["selected"] == True]
+
+        selected = st.multiselect(
+            "Strength exercises",
+            options=strength_pool["exercise_name"].tolist(),
+            default=[],
+            key="manual_strength_exercises_mixed",
+        )
+
+        strength_df = manual_strength_log_cards(
+            ex_df=ex_df,
+            selected_exercises=selected,
+            log_date=log_date,
+            session_name=session_name,
+            key_prefix="manual_strength_mixed",
+        )
+        if not strength_df.empty:
+            rows.extend(strength_df.to_dict("records"))
+
+    if not rows:
+        return pd.DataFrame(), summary_defaults
+
+    return pd.DataFrame(rows), summary_defaults
 
 
 def workout_log_page() -> None:
@@ -2983,7 +3445,7 @@ def workout_log_page() -> None:
             session_help = "This is automatically loaded from the latest generated training plan. You can rename it if the session was modified."
         else:
             default_session_name = "Manual Workout"
-            session_help = "Use this when you trained without generating a plan first, for example treadmill incline walk."
+            session_help = "Use this when you trained without generating a plan first, for example treadmill incline walk or traditional strength training."
 
         session_name = st.text_input(
             "Session label",
@@ -2995,6 +3457,7 @@ def workout_log_page() -> None:
         st.markdown("</div>", unsafe_allow_html=True)
 
     detail_df = pd.DataFrame()
+    summary_defaults = {"duration_min": 50.0, "distance_km": 0.0, "avg_hr": 135.0, "active_kcal": 300.0, "total_kcal": 350.0, "effort": 6}
 
     with middle:
         st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
@@ -3004,7 +3467,7 @@ def workout_log_page() -> None:
             detail_df = exercise_input_cards(latest, log_date)
         else:
             panel_header("Step 2", "Manual Exercise Log", "Select the exercise you actually did. Useful for treadmill incline walk, running, elliptical, or ad-hoc strength work.")
-            detail_df = manual_workout_input_cards(ex_df, log_date, session_name)
+            detail_df, summary_defaults = manual_workout_input_cards(ex_df, log_date, session_name)
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -3012,20 +3475,15 @@ def workout_log_page() -> None:
         st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
         panel_header("Step 3", "Workout Summary", "Save a summary and detailed exercise rows.")
 
-        if log_mode == "Manual workout" and not detail_df.empty:
-            manual_cardio_rows = detail_df[detail_df["section"].astype(str).str.contains("Manual Cardio", na=False)]
-            default_duration = float(manual_cardio_rows["actual_reps"].sum()) if not manual_cardio_rows.empty else 45.0
-            default_hr = float(manual_cardio_rows["actual_weight"].mean()) if not manual_cardio_rows.empty else 135.0
-        else:
-            default_duration = 50.0
-            default_hr = 135.0
-
-        duration = st.number_input("Duration (min)", min_value=0.0, max_value=300.0, value=float(default_duration), step=1.0)
-        active_kcal = st.number_input("Active kcal", min_value=0, max_value=2000, value=300, step=10)
-        avg_hr = st.number_input("Avg HR", min_value=0, max_value=220, value=int(default_hr), step=1)
+        duration = st.number_input("Duration (min)", min_value=0.0, max_value=300.0, value=float(summary_defaults["duration_min"]), step=0.1)
+        distance_km = st.number_input("Distance (km)", min_value=0.0, max_value=50.0, value=float(summary_defaults["distance_km"]), step=0.01)
+        active_kcal = st.number_input("Active kcal", min_value=0, max_value=2500, value=int(summary_defaults["active_kcal"]), step=5)
+        total_kcal = st.number_input("Total kcal", min_value=0, max_value=3000, value=int(summary_defaults["total_kcal"]), step=5)
+        avg_hr = st.number_input("Avg HR", min_value=0, max_value=220, value=int(summary_defaults["avg_hr"]), step=1)
+        effort = st.slider("Effort", 1, 10, int(summary_defaults["effort"]))
         knee_after = st.slider("Knee after", 0, 10, 0)
         ankle_after = st.slider("Ankle after", 0, 10, 0)
-        rpe_session = st.slider("Session RPE", 1, 10, 6)
+        rpe_session = effort
         notes = st.text_area("Session notes")
 
         if st.button("Save Workout", type="primary", use_container_width=True):
@@ -3036,9 +3494,11 @@ def workout_log_page() -> None:
                         "date": str(log_date),
                         "type": session_name,
                         "duration_min": duration,
-                        "distance_km": 0,
+                        "distance_km": distance_km,
                         "avg_hr": avg_hr,
                         "active_kcal": active_kcal,
+                        "total_kcal": total_kcal,
+                        "effort": effort,
                         "knee_pain": knee_after,
                         "ankle_pain": ankle_after,
                         "rpe": rpe_session,
