@@ -76,6 +76,64 @@ MEAL_DEFAULT_FOODS = {
     "Snack": ["Apple", "Banana"],
 }
 
+# Practical portion mode keeps the daily workflow low-friction.
+# Grams are still available for high-impact foods such as rice, meat, milk, oats and whey.
+PORTION_PRESETS = {
+    "Celery": {
+        "1/4 Lidl pack": 100,
+        "1/2 Lidl pack": 200,
+        "1 Lidl pack": 400,
+    },
+    "Lettuce": {
+        "1/2 head": 90,
+        "1 head": 180,
+        "2 heads": 360,
+    },
+    "Enoki Mushrooms": {
+        "1/2 pack": 75,
+        "1 pack": 150,
+        "2 packs": 300,
+    },
+    "Banana": {
+        "1 small": 100,
+        "1 medium": 120,
+        "1 large": 150,
+    },
+    "Apple": {
+        "1 small": 150,
+        "1 medium": 180,
+        "1 large": 220,
+    },
+    "Aubergine / Eggplant": {
+        "1/2 medium": 125,
+        "1 medium": 250,
+        "1 large": 350,
+    },
+    "Blueberries": {
+        "small handful": 50,
+        "medium handful": 80,
+        "large handful": 120,
+    },
+    "Strawberries": {
+        "small bowl": 100,
+        "medium bowl": 150,
+        "large bowl": 200,
+    },
+}
+
+FOOD_DEFAULT_GRAMS = {
+    "Celery": 200,
+    "Lettuce": 180,
+    "Enoki Mushrooms": 150,
+    "Banana": 120,
+    "Apple": 180,
+    "Aubergine / Eggplant": 250,
+    "Blueberries": 80,
+    "Strawberries": 150,
+}
+
+OPTIONAL_FOOD_CATEGORIES = {"seasoning", "oil"}
+
 BREAKFAST_STAPLES = {
     "Low Fat Milk",
     "Oats",
@@ -813,6 +871,23 @@ def safe_key(text: str) -> str:
     )
 
 
+def is_optional_food(category: str) -> bool:
+    return str(category).lower() in OPTIONAL_FOOD_CATEGORIES
+
+
+def default_food_weight(food_name: str, category: str) -> float:
+    if food_name in FOOD_DEFAULT_GRAMS:
+        return float(FOOD_DEFAULT_GRAMS[food_name])
+    return float(CATEGORY_DEFAULT_GRAMS.get(str(category).lower(), 100))
+
+
+def closest_portion_label(food_name: str, default_weight: float) -> str:
+    presets = PORTION_PRESETS.get(food_name, {})
+    if not presets:
+        return ""
+    return min(presets.keys(), key=lambda label: abs(float(presets[label]) - float(default_weight)))
+
+
 def calc_row(food: pd.Series, weight_g: float) -> Dict:
     factor = weight_g / 100.0
     return {
@@ -855,7 +930,7 @@ def generate_meal(food_db: pd.DataFrame, selected_foods: List[str], meal_type: s
 
     weights: Dict[str, float] = {}
     for _, row in selected.iterrows():
-        weights[row["food_name"]] = CATEGORY_DEFAULT_GRAMS.get(row["category"], 100)
+        weights[row["food_name"]] = default_food_weight(row["food_name"], row["category"])
 
     target = MEAL_TARGETS.get(meal_type, MEAL_TARGETS["Lunch"])
 
@@ -973,14 +1048,18 @@ def food_group(food_name: str, category: str) -> str:
     return "Other"
 
 
-def build_food_groups(food_db: pd.DataFrame, meal_type: str) -> Dict[str, pd.DataFrame]:
+def build_food_groups(food_db: pd.DataFrame, meal_type: str, include_optional: bool = False) -> Dict[str, pd.DataFrame]:
     df = food_db.copy()
+
+    if not include_optional:
+        df = df[~df["category"].astype(str).str.lower().isin(OPTIONAL_FOOD_CATEGORIES)].copy()
+
     df["group"] = [food_group(name, cat) for name, cat in zip(df["food_name"], df["category"])]
 
     if meal_type == "Breakfast":
         order = ["Breakfast Staples", "Fruit", "Dairy", "Supplement", "Carb", "Protein", "Vegetable", "Seed", "Oil", "Other"]
     else:
-        order = ["Protein", "Carb", "Vegetable", "Seasoning", "Oil", "Fruit", "Dairy", "Supplement", "Seed", "Other"]
+        order = ["Protein", "Carb", "Vegetable", "Fruit", "Dairy", "Supplement", "Seed", "Seasoning", "Oil", "Other"]
 
     groups: Dict[str, pd.DataFrame] = {}
     for group_name in order:
@@ -992,6 +1071,40 @@ def build_food_groups(food_db: pd.DataFrame, meal_type: str) -> Dict[str, pd.Dat
 
 def dual_weight_input(food_name: str, category: str, default_weight: float, key_prefix: str) -> float:
     cat = str(category).lower()
+
+    # Practical portion mode for foods where grams add too much friction.
+    if food_name in PORTION_PRESETS:
+        presets = PORTION_PRESETS[food_name]
+        base_key = f"{key_prefix}_{safe_key(food_name)}"
+        default_label = closest_portion_label(food_name, default_weight)
+        labels = list(presets.keys())
+
+        if default_label not in labels:
+            default_label = labels[0]
+
+        st.markdown(f"**{food_name}**")
+        mode = st.radio(
+            "Input mode",
+            ["Portion", "Grams"],
+            horizontal=True,
+            index=0,
+            key=f"{base_key}_mode",
+            label_visibility="collapsed",
+            help="Portion mode is designed for daily low-friction logging.",
+        )
+
+        if mode == "Portion":
+            label = st.selectbox(
+                "Practical portion",
+                labels,
+                index=labels.index(default_label),
+                key=f"{base_key}_portion_label",
+                help="Approximate conversion. You can update these values later in the database/design.",
+            )
+            grams = float(presets[label])
+            st.caption(f"≈ {grams:.0f} g")
+            return grams
+
     lo, hi = CATEGORY_LIMITS.get(cat, CATEGORY_LIMITS["other"])
     max_value = float(max(hi, default_weight + 50, 100))
     base_key = f"{key_prefix}_{safe_key(food_name)}"
@@ -1047,9 +1160,15 @@ def ingredient_selector(food_db: pd.DataFrame, meal_type: str, default_selected:
     default_selected_set = set(default_selected)
     selected_foods: List[str] = []
 
-    st.caption("Select ingredients first. The app will generate reasonable weights in the next step.")
+    st.caption("Select main ingredients first. Seasoning and oil are hidden by default to keep daily logging low-friction.")
+    include_optional = st.checkbox(
+        "Show optional seasoning/oil",
+        value=False,
+        key=f"{key_prefix}_{safe_key(meal_type)}_show_optional",
+        help="Use only when oil or seasoning is important for this meal. Normal daily planning can ignore it.",
+    )
 
-    groups = build_food_groups(food_db, meal_type)
+    groups = build_food_groups(food_db, meal_type, include_optional=include_optional)
     for group_name, group_df in groups.items():
         expanded = group_name in {"Breakfast Staples", "Protein", "Carb", "Vegetable"}
         with st.expander(group_name, expanded=expanded):
@@ -1075,7 +1194,7 @@ def plan_weight_editor(food_db: pd.DataFrame, plan_df: pd.DataFrame, key_prefix:
         return pd.DataFrame()
 
     st.subheader("Adjust weights")
-    st.caption("Use the slider for quick adjustment, or type the exact weight in the box.")
+    st.caption("Use portion mode for low-friction vegetables/fruits, or grams for higher-impact foods.")
 
     weights: Dict[str, float] = {}
     for _, row in plan_df.iterrows():
@@ -1101,11 +1220,18 @@ def food_picker_with_weights(
     weight_defaults: Dict[str, float],
     key_prefix: str,
 ) -> pd.DataFrame:
-    """Food groups are visible. Checked foods show slider + exact input."""
+    """Food groups are visible. Checked foods show practical portion or gram input."""
     default_selected_set = set(default_selected)
-    groups = build_food_groups(food_db, meal_type)
 
-    st.caption("Select foods from the list, then use slider or exact input for weights.")
+    st.caption("Main foods are shown by default. Vegetables/fruits can be logged by practical portions.")
+    include_optional = st.checkbox(
+        "Show optional seasoning/oil",
+        value=False,
+        key=f"{key_prefix}_{safe_key(meal_type)}_show_optional",
+        help="Keep this off for normal daily logging. Turn it on only when oil or seasoning matters.",
+    )
+
+    groups = build_food_groups(food_db, meal_type, include_optional=include_optional)
 
     weights: Dict[str, float] = {}
     for group_name, group_df in groups.items():
@@ -1127,7 +1253,7 @@ def food_picker_with_weights(
                 if checked:
                     default_weight = weight_defaults.get(
                         food_name,
-                        CATEGORY_DEFAULT_GRAMS.get(str(row["category"]).lower(), 100),
+                        default_food_weight(food_name, str(row["category"])),
                     )
                     weights[food_name] = dual_weight_input(
                         food_name=food_name,
